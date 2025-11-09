@@ -13,7 +13,7 @@ import (
 	"taskmaster2/service1/internal/usecase/create"
 	"taskmaster2/service1/internal/usecase/list"
 	listid "taskmaster2/service1/internal/usecase/list_id"
-	"taskmaster2/service1/pkg/httpserver"
+	"taskmaster2/service1/pkg/server/httpserver"
 
 	"golang.org/x/sync/errgroup"
 )

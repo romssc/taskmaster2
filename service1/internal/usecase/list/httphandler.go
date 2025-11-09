@@ -6,15 +6,14 @@ import (
 	"taskmaster2/service1/internal/utils/httputils"
 )
 
-func Handler(w http.ResponseWriter, r *http.Request) {
+func HTTPHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		httputils.ErrorJSON(w, domain.ErrMethodNotAllowed, http.StatusMethodNotAllowed)
 		return
 	}
 
 	ctx := r.Context()
-	input := Input{}
-	output, err := u.GetTasks(ctx, input)
+	output, err := u.GetTasks(ctx)
 	if err != nil {
 		httputils.ErrorJSON(w, domain.ErrInternal, http.StatusInternalServerError)
 		return

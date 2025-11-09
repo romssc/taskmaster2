@@ -8,7 +8,11 @@ import (
 	"taskmaster2/service1/internal/utils/httputils"
 )
 
-func Handler(w http.ResponseWriter, r *http.Request) {
+var (
+	ErrMalformedID = errors.New("handler: client sent a malformed id")
+)
+
+func HTTPHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		httputils.ErrorJSON(w, domain.ErrMethodNotAllowed, domain.ErrMethodNotAllowed.Code)
 		return
@@ -20,8 +24,7 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
-	input := Input{ID: id}
-	output, err := u.GetTaskByID(ctx, input)
+	output, err := u.GetTaskByID(ctx, id)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrNoRows):

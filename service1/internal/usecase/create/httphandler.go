@@ -7,10 +7,16 @@ import (
 	"net/http"
 	"taskmaster2/service1/internal/domain"
 	"taskmaster2/service1/internal/utils/httputils"
-	"taskmaster2/service1/pkg/renderjson"
+	"taskmaster2/service1/pkg/json/standartjson"
 )
 
-func Handler(w http.ResponseWriter, r *http.Request) {
+var (
+	ErrEmptyTitle       = errors.New("handler: client sent a request with an empty task title")
+	ErrUnmarshalingBody = errors.New("handler: failed to unmarshal body")
+	ErrReadingBody      = errors.New("handler: failed to read a body")
+)
+
+func HTTPHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		httputils.ErrorJSON(w, domain.ErrMethodNotAllowed, domain.ErrMethodNotAllowed.Code)
 		return
@@ -43,8 +49,7 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
-	input := Input{Task: task}
-	output, err := u.CreateTask(ctx, input)
+	output, err := u.CreateTask(ctx, task)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrAlreadyExists):
@@ -58,19 +63,19 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	httputils.SendJSON(w, output)
 }
 
-func readBody(r io.Reader) (domain.Task, error) {
+func readBody(r io.Reader) (domain.Record, error) {
 	body, err := io.ReadAll(r)
 	if err != nil {
-		return domain.Task{}, fmt.Errorf("%w: %v", ErrReadingBody, err)
+		return domain.Record{}, fmt.Errorf("%w: %v", ErrReadingBody, err)
 	}
-	var task domain.Task
-	if err := renderjson.Unmarshal(body, &task); err != nil {
-		return domain.Task{}, fmt.Errorf("%w: %v", ErrUnmarshalingBody, err)
+	var task domain.Record
+	if err := standartjson.Unmarshal(body, &task); err != nil {
+		return domain.Record{}, fmt.Errorf("%w: %v", ErrUnmarshalingBody, err)
 	}
 	return task, nil
 }
 
-func validateTask(task domain.Task) error {
+func validateTask(task domain.Record) error {
 	if task.Title == "" {
 		return ErrEmptyTitle
 	}

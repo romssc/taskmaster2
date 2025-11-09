@@ -2,11 +2,17 @@ package list
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"taskmaster2/service1/internal/domain"
+)
+
+var (
+	ErrDatabaseFailure = errors.New("usecase: database failed")
 )
 
 type Getter interface {
-	GetTasks(ctx context.Context, i Input) (Output, error)
+	GetTasks(ctx context.Context) ([]domain.Record, error)
 }
 
 type Usecase struct {
@@ -19,10 +25,10 @@ func New(g Getter) {
 	u = &Usecase{Getter: g}
 }
 
-func (u *Usecase) GetTasks(ctx context.Context, i Input) (Output, error) {
-	tasks, err := u.Getter.GetTasks(ctx, i)
+func (u *Usecase) GetTasks(ctx context.Context) ([]domain.Record, error) {
+	tasks, err := u.Getter.GetTasks(ctx)
 	if err != nil {
-		return Output{}, fmt.Errorf("%w: %v", ErrDatabaseFailure, err)
+		return nil, fmt.Errorf("%w: %v", ErrDatabaseFailure, err)
 	}
 	return tasks, nil
 }

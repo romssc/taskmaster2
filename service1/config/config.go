@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"taskmaster2/service1/internal/adapter/storage/sqlite3"
-	"taskmaster2/service1/pkg/httpserver"
+	"taskmaster2/service1/pkg/server/httpserver"
 
 	"github.com/ilyakaznacheev/cleanenv"
 )

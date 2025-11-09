@@ -1,4 +1,4 @@
-package renderjson
+package standartjson
 
 import (
 	"encoding/json"

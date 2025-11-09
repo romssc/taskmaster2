@@ -9,8 +9,8 @@ import (
 
 func New() http.Handler {
 	m := http.NewServeMux()
-	m.HandleFunc("/list", list.Handler)
-	m.HandleFunc("/list/{id}", listid.Handler)
-	m.HandleFunc("/create", create.Handler)
+	m.HandleFunc("/list", list.HTTPHandler)
+	m.HandleFunc("/list/{id}", listid.HTTPHandler)
+	m.HandleFunc("/create", create.HTTPHandler)
 	return m
 }
