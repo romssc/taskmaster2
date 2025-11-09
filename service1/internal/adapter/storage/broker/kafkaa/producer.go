@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"taskmaster2/service1/internal/domain"
 	"taskmaster2/service1/pkg/json/standartjson"
 	"time"
@@ -15,6 +16,7 @@ var (
 	ErrClosingConnection = errors.New("kafka: failed to close connection")
 	ErrMarshalingEvent   = errors.New("kafka: failed to prepare event")
 	ErrProducingEvent    = errors.New("kafka: failed to produce event")
+	ErrClosed            = errors.New("kafka: failed due to closed broker")
 )
 
 type Config struct {
@@ -52,10 +54,13 @@ func (p *Producer) PublishEvent(ctx context.Context, event domain.Event) error {
 		return fmt.Errorf("%w: %v", ErrMarshalingEvent, err)
 	}
 	if err := p.producer.WriteMessages(ctx, kafka.Message{
-		Key:   []byte(event.ID),
+		Key:   []byte(strconv.Itoa(event.ID)),
 		Value: e,
 		Time:  time.Now(),
 	}); err != nil {
+		if errors.Is(err, kafka.ErrGroupClosed) {
+			return fmt.Errorf("%w: %v", ErrClosed, err)
+		}
 		return fmt.Errorf("%w: %v", ErrProducingEvent, err)
 	}
 	return nil

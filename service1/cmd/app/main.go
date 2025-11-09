@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"taskmaster2/service1/config"
 
+	"taskmaster2/service1/internal/adapter/storage/broker/kafkaa"
 	"taskmaster2/service1/internal/adapter/storage/sqlitee3"
 	"taskmaster2/service1/internal/controller/httprouter"
 	"taskmaster2/service1/internal/usecase/create"
@@ -36,8 +37,10 @@ func run() error {
 		return err
 	}
 	defer storage.Close()
+	broker := kafkaa.New(config.Kafka)
+	defer broker.Close()
 	router := httprouter.New()
-	create.New(storage)
+	create.New(storage, broker)
 	list.New(storage)
 	listid.New(storage)
 	server := httpserver.New(router, config.Server)

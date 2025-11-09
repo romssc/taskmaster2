@@ -24,11 +24,11 @@ func HTTPHandler(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	task, err := readBody(r.Body)
 	if err != nil {
-		switch err {
-		case ErrReadingBody:
+		switch {
+		case errors.Is(err, ErrReadingBody):
 			httputils.ErrorJSON(w, domain.ErrMalformedBody, domain.ErrMalformedBody.Code)
 			return
-		case ErrUnmarshalingBody:
+		case errors.Is(err, ErrUnmarshalingBody):
 			httputils.ErrorJSON(w, domain.ErrMalformedBody, domain.ErrMalformedBody.Code)
 			return
 		default:
@@ -38,8 +38,8 @@ func HTTPHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	err = validateTask(task)
 	if err != nil {
-		switch err {
-		case ErrEmptyTitle:
+		switch {
+		case errors.Is(err, ErrEmptyTitle):
 			httputils.ErrorJSON(w, domain.ErrEmptyTitle, domain.ErrEmptyTitle.Code)
 			return
 		default:
@@ -54,6 +54,8 @@ func HTTPHandler(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case errors.Is(err, ErrAlreadyExists):
 			httputils.ErrorJSON(w, domain.ErrAlreadyExists, domain.ErrAlreadyExists.Code)
+		case errors.Is(err, ErrBrokerUnavailable):
+			httputils.ErrorJSON(w, domain.ErrBrokerUnavailable, domain.ErrBrokerUnavailable.Code)
 		default:
 			httputils.ErrorJSON(w, domain.ErrInternal, domain.ErrInternal.Code)
 		}

@@ -17,7 +17,8 @@ var (
 
 // SITUATIONAL ERRORS
 var (
-	ErrEmptyTitle    = Error{Code: http.StatusBadRequest, Message: "task's title can't be empty"}
-	ErrAlreadyExists = Error{Code: http.StatusConflict, Message: "task already exists"}
-	ErrNotFound      = Error{Code: http.StatusNotFound, Message: "no tasks found"}
+	ErrEmptyTitle        = Error{Code: http.StatusBadRequest, Message: "task's title can't be empty"}
+	ErrAlreadyExists     = Error{Code: http.StatusConflict, Message: "task already exists"}
+	ErrNotFound          = Error{Code: http.StatusNotFound, Message: "no tasks found"}
+	ErrBrokerUnavailable = Error{Code: http.StatusServiceUnavailable, Message: "service can't handle the request at the moment"}
 )

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"taskmaster2/service1/internal/adapter/storage/broker/kafkaa"
 	"taskmaster2/service1/internal/adapter/storage/sqlitee3"
 	"taskmaster2/service1/internal/domain"
 	"time"
@@ -13,26 +14,37 @@ import (
 )
 
 var (
-	ErrAlreadyExists   = errors.New("usecase: task already exists in the database")
-	ErrDatabaseFailure = errors.New("usecase: database failed")
+	ErrAlreadyExists     = errors.New("usecase: task already exists in the database")
+	ErrDatabaseFailure   = errors.New("usecase: database failed")
+	ErrBrokerUnavailable = errors.New("usecase: broker unavailable")
+	ErrBrokerFailure     = errors.New("usecase: broker failed")
 )
 
 type Creator interface {
 	CreateTask(ctx context.Context, task domain.Record) (int, error)
 }
 
+type Publisher interface {
+	PublishEvent(ctx context.Context, event domain.Event) error
+}
+
 type Usecase struct {
-	Creator Creator
+	Creator   Creator
+	Publisher Publisher
 }
 
 var u *Usecase
 
-func New(c Creator) {
-	u = &Usecase{Creator: c}
+func New(c Creator, p Publisher) {
+	u = &Usecase{
+		Creator:   c,
+		Publisher: p,
+	}
 }
 
 func (u *Usecase) CreateTask(ctx context.Context, task domain.Record) (int, error) {
-	id, err := u.Creator.CreateTask(ctx, setTaskValues(task))
+	task, event := setValues(task)
+	id, err := u.Creator.CreateTask(ctx, task)
 	if err != nil {
 		switch {
 		case errors.Is(err, sqlitee3.ErrAlreadyExists):
@@ -41,13 +53,30 @@ func (u *Usecase) CreateTask(ctx context.Context, task domain.Record) (int, erro
 			return 0, fmt.Errorf("%w: %v", ErrDatabaseFailure, err)
 		}
 	}
+	if err := u.Publisher.PublishEvent(ctx, event); err != nil {
+		switch {
+		case errors.Is(err, kafkaa.ErrClosed):
+			return 0, fmt.Errorf("%w: %v", ErrBrokerUnavailable, err)
+		default:
+			return 0, fmt.Errorf("%w: %v", ErrBrokerFailure, err)
+		}
+	}
 	return id, nil
 }
 
-func setTaskValues(task domain.Record) domain.Record {
+func setValues(task domain.Record) (domain.Record, domain.Event) {
 	uuid := uuid.New().ID()
+	timestamp := time.Now().Local()
+
 	task.ID = int(uuid)
-	task.CreatedAt = time.Now().Local()
+	task.CreatedAt = timestamp
 	task.Status = domain.StatusProcessing
-	return task
+	event := domain.Event{
+		ID:        int(uuid),
+		Action:    domain.ActionCreate,
+		Status:    domain.StatusProcessing,
+		Timestamp: timestamp,
+	}
+
+	return task, event
 }
