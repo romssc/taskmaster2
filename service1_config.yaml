@@ -1,0 +1,8 @@
+server:
+  host: "localhost"
+  port: "8080"
+  read_timeout: 20s
+  write_timeout: 20s
+  shutdown_timeout: 20s
+sqlite3:
+  path: ".tasks.db"
