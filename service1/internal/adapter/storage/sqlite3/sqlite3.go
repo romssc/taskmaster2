@@ -3,7 +3,7 @@ package sqlite3
 import (
 	"database/sql"
 	"fmt"
-	"taskmaster2/internal/adapter/storage"
+	"taskmaster2/service1/internal/adapter/storage"
 
 	_ "github.com/mattn/go-sqlite3"
 )

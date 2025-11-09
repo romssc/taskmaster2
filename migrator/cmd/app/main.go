@@ -29,12 +29,12 @@ func m() error {
 	}
 	switch direction {
 	case "0":
-		if err := migrator.Up(); err != nil {
-			return fmt.Errorf("migrator: failed to migrate up: %v", err)
-		}
-	case "1":
 		if err := migrator.Down(); err != nil {
 			return fmt.Errorf("migrator: failed to migrate down: %v", err)
+		}
+	case "1":
+		if err := migrator.Up(); err != nil {
+			return fmt.Errorf("migrator: failed to migrate up: %v", err)
 		}
 	}
 	return nil

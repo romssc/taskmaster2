@@ -6,11 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"taskmaster2/internal/adapter/storage"
-	"taskmaster2/internal/domain"
-	"taskmaster2/internal/usecase/create"
-	"taskmaster2/internal/usecase/list"
-	listid "taskmaster2/internal/usecase/list_id"
+	"taskmaster2/service1/internal/adapter/storage"
+	"taskmaster2/service1/internal/domain"
+	"taskmaster2/service1/internal/usecase/create"
+	"taskmaster2/service1/internal/usecase/list"
+	listid "taskmaster2/service1/internal/usecase/list_id"
 	"time"
 )
 

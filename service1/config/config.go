@@ -3,8 +3,8 @@ package config
 import (
 	"errors"
 	"fmt"
-	"taskmaster2/internal/adapter/storage/sqlite3"
-	"taskmaster2/pkg/httpserver"
+	"taskmaster2/service1/internal/adapter/storage/sqlite3"
+	"taskmaster2/service1/pkg/httpserver"
 
 	"github.com/ilyakaznacheev/cleanenv"
 )

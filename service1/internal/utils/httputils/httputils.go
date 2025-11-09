@@ -2,8 +2,8 @@ package httputils
 
 import (
 	"net/http"
-	"taskmaster2/internal/domain"
-	"taskmaster2/pkg/renderjson"
+	"taskmaster2/service1/internal/domain"
+	"taskmaster2/service1/pkg/renderjson"
 )
 
 func ErrorJSON(w http.ResponseWriter, data any, code int) {

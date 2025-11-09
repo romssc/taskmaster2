@@ -4,8 +4,8 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
-	"taskmaster2/internal/domain"
-	"taskmaster2/internal/utils/httputils"
+	"taskmaster2/service1/internal/domain"
+	"taskmaster2/service1/internal/utils/httputils"
 )
 
 func Handler(w http.ResponseWriter, r *http.Request) {

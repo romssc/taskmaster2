@@ -1,6 +1,6 @@
 package create
 
-import "taskmaster2/internal/domain"
+import "taskmaster2/service1/internal/domain"
 
 type Input struct {
 	domain.Task

@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"taskmaster2/internal/domain"
-	"taskmaster2/internal/utils/httputils"
-	"taskmaster2/pkg/renderjson"
+	"taskmaster2/service1/internal/domain"
+	"taskmaster2/service1/internal/utils/httputils"
+	"taskmaster2/service1/pkg/renderjson"
 )
 
 func Handler(w http.ResponseWriter, r *http.Request) {

@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"taskmaster2/internal/adapter/storage"
+	"taskmaster2/service1/internal/adapter/storage"
 )
 
 type Getter interface {
