@@ -8,11 +8,12 @@ import (
 	"os/signal"
 	"syscall"
 	"taskmaster2/service1/config"
-	"taskmaster2/service1/internal/adapter/storage/sqlite3"
+
+	"taskmaster2/service1/internal/adapter/storage/sqlitee3"
 	"taskmaster2/service1/internal/controller/httprouter"
 	"taskmaster2/service1/internal/usecase/create"
 	"taskmaster2/service1/internal/usecase/list"
-	listid "taskmaster2/service1/internal/usecase/list_id"
+	"taskmaster2/service1/internal/usecase/listid"
 	"taskmaster2/service1/pkg/server/httpserver"
 
 	"golang.org/x/sync/errgroup"
@@ -30,7 +31,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	storage, err := sqlite3.New(config.SQLite3)
+	storage, err := sqlitee3.New(config.SQLite3)
 	if err != nil {
 		return err
 	}

@@ -1,4 +1,4 @@
-package sqlite3
+package sqlitee3
 
 import (
 	"context"

@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"taskmaster2/service1/internal/adapter/storage/sqlite3"
+	"taskmaster2/service1/internal/adapter/storage/sqlitee3"
 	"taskmaster2/service1/internal/domain"
 )
 
@@ -33,7 +33,7 @@ func (u *Usecase) GetTaskByID(ctx context.Context, id int) (domain.Record, error
 	task, err := u.Getter.GetTaskByID(ctx, id)
 	if err != nil {
 		switch {
-		case errors.Is(err, sqlite3.ErrNoRows):
+		case errors.Is(err, sqlitee3.ErrNoRows):
 			return domain.Record{}, fmt.Errorf("%w: %v", ErrNoRows, err)
 		default:
 			return domain.Record{}, fmt.Errorf("%w: %v", ErrDatabaseFailure, err)

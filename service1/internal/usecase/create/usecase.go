@@ -4,7 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"taskmaster2/service1/internal/adapter/storage/sqlite3"
+
+	"taskmaster2/service1/internal/adapter/storage/sqlitee3"
 	"taskmaster2/service1/internal/domain"
 	"time"
 
@@ -34,7 +35,7 @@ func (u *Usecase) CreateTask(ctx context.Context, task domain.Record) (int, erro
 	id, err := u.Creator.CreateTask(ctx, setTaskValues(task))
 	if err != nil {
 		switch {
-		case errors.Is(err, sqlite3.ErrAlreadyExists):
+		case errors.Is(err, sqlitee3.ErrAlreadyExists):
 			return 0, fmt.Errorf("%w: %v", ErrAlreadyExists, err)
 		default:
 			return 0, fmt.Errorf("%w: %v", ErrDatabaseFailure, err)

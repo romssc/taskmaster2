@@ -6,3 +6,8 @@ server:
   shutdown_timeout: 20s
 sqlite3:
   path: ".tasks.db"
+kafka:
+  address:
+  topic:
+  batch_timeout:
+  required_acks: -1
