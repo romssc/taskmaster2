@@ -3,8 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
-	"taskmaster2/service1/internal/adapter/storage/broker/kafkaa"
-	"taskmaster2/service1/internal/adapter/storage/sqlitee3"
+	"taskmaster2/service1/internal/adapter/broker/kafkaa"
 
 	"taskmaster2/service1/pkg/server/httpserver"
 
@@ -16,9 +15,8 @@ var (
 )
 
 type Config struct {
-	Server  httpserver.Config `yaml:"server"`
-	SQLite3 sqlitee3.Config   `yaml:"sqlite3"`
-	Kafka   kafkaa.Config     `yaml:"kafka"`
+	Server httpserver.Config `yaml:"server"`
+	Kafka  kafkaa.Config     `yaml:"kafka"`
 }
 
 func New(path string) (Config, error) {

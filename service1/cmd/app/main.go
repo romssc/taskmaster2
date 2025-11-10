@@ -9,8 +9,8 @@ import (
 	"syscall"
 	"taskmaster2/service1/config"
 
-	"taskmaster2/service1/internal/adapter/storage/broker/kafkaa"
-	"taskmaster2/service1/internal/adapter/storage/sqlitee3"
+	"taskmaster2/service1/internal/adapter/broker/kafkaa"
+	"taskmaster2/service1/internal/adapter/storage/inmemory"
 	"taskmaster2/service1/internal/controller/httprouter"
 	"taskmaster2/service1/internal/usecase/create"
 	"taskmaster2/service1/internal/usecase/list"
@@ -32,10 +32,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	storage, err := sqlitee3.New(config.SQLite3)
-	if err != nil {
-		return err
-	}
+	storage := inmemory.New()
 	defer storage.Close()
 	broker := kafkaa.New(config.Kafka)
 	defer broker.Close()

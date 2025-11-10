@@ -4,12 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"taskmaster2/service1/internal/adapter/storage/sqlitee3"
+	inmemory "taskmaster2/in_memory"
 	"taskmaster2/service1/internal/domain"
 )
 
 var (
-	ErrNoRows          = errors.New("usecase: no records found")
+	ErrNotFound        = errors.New("usecase: no records found")
 	ErrDatabaseFailure = errors.New("usecase: database failed")
 )
 
@@ -33,8 +33,8 @@ func (u *Usecase) GetTaskByID(ctx context.Context, id int) (domain.Record, error
 	task, err := u.Getter.GetTaskByID(ctx, id)
 	if err != nil {
 		switch {
-		case errors.Is(err, sqlitee3.ErrNoRows):
-			return domain.Record{}, fmt.Errorf("%w: %v", ErrNoRows, err)
+		case errors.Is(err, inmemory.ErrNotFound):
+			return domain.Record{}, fmt.Errorf("%w: %v", ErrNotFound, err)
 		default:
 			return domain.Record{}, fmt.Errorf("%w: %v", ErrDatabaseFailure, err)
 		}

@@ -27,7 +27,7 @@ func HTTPHandler(w http.ResponseWriter, r *http.Request) {
 	output, err := u.GetTaskByID(ctx, id)
 	if err != nil {
 		switch {
-		case errors.Is(err, ErrNoRows):
+		case errors.Is(err, ErrNotFound):
 			httputils.ErrorJSON(w, domain.ErrNotFound, domain.ErrNotFound.Code)
 		default:
 			httputils.ErrorJSON(w, domain.ErrInternal, domain.ErrInternal.Code)
