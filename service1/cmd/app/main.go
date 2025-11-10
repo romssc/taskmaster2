@@ -23,7 +23,7 @@ import (
 
 func main() {
 	if err := run(); err != nil {
-		log.Fatalf("critical: %w", err)
+		log.Fatalf("critical: %v", err)
 	}
 }
 
