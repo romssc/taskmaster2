@@ -36,10 +36,12 @@ type Consumer struct {
 	handler Handlers
 }
 
-type EventHandler func(ctx context.Context, event domain.Event) error
+type Handler interface {
+	EventHandler(ctx context.Context, event domain.Event) error
+}
 
 type Handlers struct {
-	Update EventHandler
+	Update Handler
 }
 
 func New(h Handlers, c Config) *Consumer {
@@ -84,9 +86,11 @@ func (c *Consumer) process(ctx context.Context) error {
 	var e error
 	switch event.Action {
 	case domain.ActionUpdate:
-		e = c.handler.Update(ctx, event)
+		e = c.handler.Update.EventHandler(ctx, event)
 	default:
-		c.reader.CommitMessages(ctx, msg)
+		if err := c.reader.CommitMessages(ctx, msg); err != nil {
+			return fmt.Errorf("%w: %v", ErrCommitting, err)
+		}
 		return fmt.Errorf("%w", ErrUnknownAction)
 	}
 	if e != nil {

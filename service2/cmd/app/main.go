@@ -11,7 +11,6 @@ import (
 	"taskmaster2/service2/internal/adapter/storage/inmemory"
 	"taskmaster2/service2/internal/controller/kafkarouter"
 	"taskmaster2/service2/internal/pkg/broker/kafkaa"
-	"taskmaster2/service2/internal/usecase/update"
 
 	"golang.org/x/sync/errgroup"
 )
@@ -29,8 +28,7 @@ func run() error {
 		return err
 	}
 	storage := inmemory.New()
-	router := kafkarouter.New()
-	update.New(storage)
+	router := kafkarouter.New(storage)
 	broker := kafkaa.New(router, config.Kafka)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
