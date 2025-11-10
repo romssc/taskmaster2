@@ -23,7 +23,7 @@ import (
 
 func main() {
 	if err := run(); err != nil {
-		log.Fatalln(err)
+		log.Fatalf("critical: %w", err)
 	}
 }
 
@@ -66,6 +66,7 @@ func run() error {
 	if err := e.Wait(); err != nil && !errors.Is(err, context.Canceled) {
 		return err
 	}
+
 	return nil
 }
 

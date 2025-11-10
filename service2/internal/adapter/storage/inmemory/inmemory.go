@@ -9,11 +9,9 @@ import (
 )
 
 var (
-	ErrOperationCanceled = errors.New("inmemory: operation canceled")
-	ErrAlreadyExists     = errors.New("inmemory: already exists")
-	ErrExecuting         = errors.New("inmemory: failed to execute")
-	ErrIncompatible      = errors.New("inmemory: data incompatible: memory stores different type")
-	ErrNotFound          = errors.New("inmemory: no records found")
+	ErrExecuting    = errors.New("inmemory: failed to execute")
+	ErrIncompatible = errors.New("inmemory: data incompatible: memory stores different type")
+	ErrNotFound     = errors.New("inmemory: no records found")
 )
 
 type Storage struct {
