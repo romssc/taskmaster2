@@ -79,3 +79,13 @@ func (m *InMemory) AllContext(ctx context.Context) ([]any, error) {
 		return pairs, nil
 	}
 }
+
+func (m *InMemory) UpdateContext(ctx context.Context, key any, value any) error {
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("%v: %w", ErrOperationCanceled, ctx.Err())
+	default:
+		m.store.Store(key, value)
+		return nil
+	}
+}

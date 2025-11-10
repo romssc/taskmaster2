@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	inmemory "taskmaster2/in_memory"
+	"taskmaster2/service1/internal/adapter/storage/inmemory"
 	"taskmaster2/service1/internal/domain"
 )
 
