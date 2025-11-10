@@ -144,7 +144,8 @@ func setValues(task domain.Record) (domain.Record, domain.Event) {
 	task.CreatedAt = timestamp
 	task.Status = domain.StatusProcessing
 	event := domain.Event{
-		ID: int(uuid),
+		ID:     int(uuid),
+		Action: domain.ActionUpdate,
 	}
 
 	return task, event

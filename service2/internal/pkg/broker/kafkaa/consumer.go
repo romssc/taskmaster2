@@ -65,10 +65,11 @@ func (c *Consumer) Run(ctx context.Context) error {
 			return fmt.Errorf("%w: %v", ErrConsumerClose, ctx.Err())
 		default:
 			if err := c.process(ctx); err != nil {
-				if errors.Is(err, context.Canceled) {
+				if errors.Is(err, ErrConsumerClose) {
 					return fmt.Errorf("%w: %v", ErrConsumerClose, ctx.Err())
+				} else {
+					log.Println(err)
 				}
-				log.Println(err)
 			}
 		}
 	}
@@ -77,6 +78,9 @@ func (c *Consumer) Run(ctx context.Context) error {
 func (c *Consumer) process(ctx context.Context) error {
 	msg, err := c.reader.FetchMessage(ctx)
 	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			return fmt.Errorf("%w: %v", ErrConsumerClose, ctx.Err())
+		}
 		return fmt.Errorf("%w: %v", ErrFetchingMessages, err)
 	}
 	var event domain.Event

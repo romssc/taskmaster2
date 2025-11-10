@@ -39,7 +39,7 @@ func run() error {
 	defer cancel()
 	e, c := errgroup.WithContext(ctx)
 	e.Go(func() error {
-		if err := server.Run(); err != nil && err != http.ErrServerClosed {
+		if err := server.Run(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			return err
 		}
 		return nil

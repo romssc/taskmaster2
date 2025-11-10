@@ -8,7 +8,6 @@ import (
 	"os/signal"
 	"syscall"
 	"taskmaster2/service2/config"
-	"taskmaster2/service2/internal/adapter/storage/inmemory"
 	"taskmaster2/service2/internal/controller/kafkarouter"
 	"taskmaster2/service2/internal/pkg/broker/kafkaa"
 
@@ -27,15 +26,14 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	storage := inmemory.New()
-	router := kafkarouter.New(storage)
+	router := kafkarouter.New()
 	broker := kafkaa.New(router, config.Kafka)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	defer cancel()
 	e, c := errgroup.WithContext(ctx)
 	e.Go(func() error {
-		if err := broker.Run(c); err != nil {
+		if err := broker.Run(c); err != nil && !errors.Is(err, kafkaa.ErrConsumerClose) {
 			return err
 		}
 		return nil
@@ -45,7 +43,6 @@ func run() error {
 		if err := broker.Close(); err != nil {
 			log.Panicln(err)
 		}
-		storage.Close()
 		return nil
 	})
 	if err := e.Wait(); err != nil && !errors.Is(err, context.Canceled) {
