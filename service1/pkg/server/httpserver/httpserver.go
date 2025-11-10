@@ -46,9 +46,7 @@ func (s *Server) Run() error {
 	return nil
 }
 
-func (s *Server) Shutdown(timeout time.Duration) error {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
+func (s *Server) Shutdown(ctx context.Context) error {
 	err := s.server.Shutdown(ctx)
 	if err != nil {
 		return fmt.Errorf("%v: %w", ErrShuttingDown, err)

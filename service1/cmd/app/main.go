@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
 	"net/http"
 	"os"
@@ -33,16 +34,14 @@ func run() error {
 		return err
 	}
 	storage := inmemory.New()
-	defer storage.Close()
 	broker := kafkaa.New(config.Kafka)
-	defer broker.Close()
 	router := httprouter.New()
 	create.New(storage, broker)
 	list.New(storage)
 	listid.New(storage)
 	server := httpserver.New(router, config.Server)
 
-	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	defer cancel()
 	e, c := errgroup.WithContext(ctx)
 	e.Go(func() error {
@@ -53,12 +52,18 @@ func run() error {
 	})
 	e.Go(func() error {
 		<-c.Done()
-		if err := server.Shutdown(config.Server.ShutdownTimeout); err != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), config.Server.ShutdownTimeout)
+		defer cancel()
+		if err := server.Shutdown(ctx); err != nil {
 			return err
 		}
+		if err := broker.Close(); err != nil {
+			return err
+		}
+		storage.Close()
 		return nil
 	})
-	if err := e.Wait(); err != nil && err != context.Canceled {
+	if err := e.Wait(); err != nil && !errors.Is(err, context.Canceled) {
 		return err
 	}
 	return nil
