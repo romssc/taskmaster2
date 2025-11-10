@@ -14,9 +14,6 @@ import (
 	"taskmaster2/service1/internal/adapter/storage/inmemory"
 	"taskmaster2/service1/internal/controller/httprouter"
 	"taskmaster2/service1/internal/pkg/server/httpserver"
-	"taskmaster2/service1/internal/usecase/create"
-	"taskmaster2/service1/internal/usecase/list"
-	"taskmaster2/service1/internal/usecase/listid"
 
 	"golang.org/x/sync/errgroup"
 )
@@ -35,10 +32,7 @@ func run() error {
 	}
 	storage := inmemory.New()
 	broker := kafkaa.New(config.Kafka)
-	router := httprouter.New()
-	create.New(storage, broker)
-	list.New(storage)
-	listid.New(storage)
+	router := httprouter.New(storage, broker)
 	server := httpserver.New(router, config.Server)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
@@ -55,10 +49,10 @@ func run() error {
 		ctx, cancel := context.WithTimeout(context.Background(), config.Server.ShutdownTimeout)
 		defer cancel()
 		if err := server.Shutdown(ctx); err != nil {
-			return err
+			log.Println(err)
 		}
 		if err := broker.Close(); err != nil {
-			return err
+			log.Println(err)
 		}
 		storage.Close()
 		return nil

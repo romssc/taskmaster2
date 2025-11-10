@@ -1,18 +1,37 @@
 package listid
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
+	"taskmaster2/service1/internal/adapter/storage/inmemory"
 	"taskmaster2/service1/internal/domain"
 	"taskmaster2/service1/internal/pkg/server/httputils"
 )
 
 var (
-	ErrMalformedID = errors.New("handler: client sent a malformed id")
+	ErrMalformedID     = errors.New("listid: client sent a malformed id")
+	ErrNotFound        = errors.New("listid: no records found")
+	ErrDatabaseFailure = errors.New("listid: database failed")
 )
 
-func HTTPHandler(w http.ResponseWriter, r *http.Request) {
+type Getter interface {
+	GetTaskByID(ctx context.Context, id int) (domain.Record, error)
+}
+
+type Usecase struct {
+	Getter Getter
+}
+
+func New(g Getter) *Usecase {
+	return &Usecase{
+		Getter: g,
+	}
+}
+
+func (u *Usecase) HTTPHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		httputils.ErrorJSON(w, domain.ErrMethodNotAllowed, domain.ErrMethodNotAllowed.Code)
 		return
@@ -24,7 +43,7 @@ func HTTPHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
-	output, err := u.GetTaskByID(ctx, id)
+	output, err := u.getTaskByID(ctx, id)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrNotFound):
@@ -45,4 +64,17 @@ func readPathValues(r *http.Request) (int, error) {
 		return 0, ErrMalformedID
 	}
 	return i, nil
+}
+
+func (u *Usecase) getTaskByID(ctx context.Context, id int) (domain.Record, error) {
+	task, err := u.Getter.GetTaskByID(ctx, id)
+	if err != nil {
+		switch {
+		case errors.Is(err, inmemory.ErrNotFound):
+			return domain.Record{}, fmt.Errorf("%w: %v", ErrNotFound, err)
+		default:
+			return domain.Record{}, fmt.Errorf("%w: %v", ErrDatabaseFailure, err)
+		}
+	}
+	return task, nil
 }

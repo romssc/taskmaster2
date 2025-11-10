@@ -42,12 +42,10 @@ func run() error {
 	})
 	e.Go(func() error {
 		<-c.Done()
-		defer func() {
-			storage.Close()
-		}()
 		if err := broker.Close(); err != nil {
-			return err
+			log.Panicln(err)
 		}
+		storage.Close()
 		return nil
 	})
 	if err := e.Wait(); err != nil && !errors.Is(err, context.Canceled) {
