@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"taskmaster2/service1/internal/domain"
-	"taskmaster2/service1/pkg/json/standartjson"
+	"taskmaster2/service1/internal/pkg/json/standartjson"
 	"time"
 
 	"github.com/segmentio/kafka-go"

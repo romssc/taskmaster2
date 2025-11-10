@@ -7,8 +7,8 @@ import (
 )
 
 var (
-	ErrMarshaling   = errors.New("renderjson: failed to marshal")
-	ErrUnmarshaling = errors.New("renderjson: failed to unmarshal")
+	ErrMarshaling   = errors.New("standartjson: failed to marshal")
+	ErrUnmarshaling = errors.New("standartjson: failed to unmarshal")
 )
 
 func Marshal(data any) ([]byte, error) {

@@ -3,7 +3,7 @@ package httputils
 import (
 	"net/http"
 	"taskmaster2/service1/internal/domain"
-	"taskmaster2/service1/pkg/json/standartjson"
+	"taskmaster2/service1/internal/pkg/json/standartjson"
 )
 
 func ErrorJSON(w http.ResponseWriter, data any, code int) {

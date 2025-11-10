@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strconv"
 	"taskmaster2/service1/internal/domain"
-	"taskmaster2/service1/internal/utils/httputils"
+	"taskmaster2/service1/internal/pkg/server/httputils"
 )
 
 var (

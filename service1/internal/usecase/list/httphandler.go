@@ -3,7 +3,7 @@ package list
 import (
 	"net/http"
 	"taskmaster2/service1/internal/domain"
-	"taskmaster2/service1/internal/utils/httputils"
+	"taskmaster2/service1/internal/pkg/server/httputils"
 )
 
 func HTTPHandler(w http.ResponseWriter, r *http.Request) {

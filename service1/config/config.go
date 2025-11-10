@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"taskmaster2/service1/internal/adapter/broker/kafkaa"
 
-	"taskmaster2/service1/pkg/server/httpserver"
+	"taskmaster2/service1/internal/pkg/server/httpserver"
 
 	"github.com/ilyakaznacheev/cleanenv"
 )
