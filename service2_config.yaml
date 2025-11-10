@@ -1,0 +1,5 @@
+kafka:
+  brokers:
+    - ""
+  topic: ""
+  start_offset: -2
