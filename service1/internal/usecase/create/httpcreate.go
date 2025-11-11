@@ -47,23 +47,20 @@ func (u *Usecase) HTTPHandler(w http.ResponseWriter, r *http.Request) {
 		httputils.ErrorJSON(w, domain.ErrMethodNotAllowed, domain.ErrMethodNotAllowed.Code)
 		return
 	}
+
 	defer r.Body.Close()
-	task, err := readBody(r.Body)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		switch {
-		case errors.Is(err, ErrReadingBody):
-			httputils.ErrorJSON(w, domain.ErrMalformedBody, domain.ErrMalformedBody.Code)
-			return
-		case errors.Is(err, ErrUnmarshalingBody):
-			httputils.ErrorJSON(w, domain.ErrMalformedBody, domain.ErrMalformedBody.Code)
-			return
-		default:
-			httputils.ErrorJSON(w, domain.ErrInternal, domain.ErrInternal.Code)
-			return
-		}
+		httputils.ErrorJSON(w, domain.ErrMalformedBody, domain.ErrMalformedBody.Code)
+		return
 	}
-	err = validateTask(task)
-	if err != nil {
+	var task domain.Record
+	if err := standartjson.Unmarshal(body, &task); err != nil {
+		httputils.ErrorJSON(w, domain.ErrMalformedBody, domain.ErrMalformedBody.Code)
+		return
+	}
+
+	if err := validateTask(task); err != nil {
 		switch {
 		case errors.Is(err, ErrEmptyTitle):
 			httputils.ErrorJSON(w, domain.ErrEmptyTitle, domain.ErrEmptyTitle.Code)
@@ -89,18 +86,6 @@ func (u *Usecase) HTTPHandler(w http.ResponseWriter, r *http.Request) {
 	httputils.SendJSON(w, output)
 }
 
-func readBody(r io.Reader) (domain.Record, error) {
-	body, err := io.ReadAll(r)
-	if err != nil {
-		return domain.Record{}, fmt.Errorf("%w: %v", ErrReadingBody, err)
-	}
-	var task domain.Record
-	if err := standartjson.Unmarshal(body, &task); err != nil {
-		return domain.Record{}, fmt.Errorf("%w: %v", ErrUnmarshalingBody, err)
-	}
-	return task, nil
-}
-
 func validateTask(task domain.Record) error {
 	if task.Title == "" {
 		return fmt.Errorf("%w", ErrEmptyTitle)
@@ -113,7 +98,13 @@ func (u *Usecase) CreateTask(ctx context.Context, task domain.Record) (int, erro
 	if err != nil {
 		return 0, fmt.Errorf("%w: %v", ErrGeneratingID, err)
 	}
-	event := setValues(id, task)
+	event := domain.Event{
+		Action: domain.ActionUpdate,
+		Record: domain.Record{
+			ID:    id,
+			Title: task.Title,
+		},
+	}
 	if err := u.Publisher.PublishEvent(ctx, event); err != nil {
 		switch {
 		case errors.Is(err, kafkaa.ErrOperationCanceled):
@@ -125,14 +116,4 @@ func (u *Usecase) CreateTask(ctx context.Context, task domain.Record) (int, erro
 		}
 	}
 	return event.Record.ID, nil
-}
-
-func setValues(id int, task domain.Record) domain.Event {
-	return domain.Event{
-		Action: domain.ActionUpdate,
-		Record: domain.Record{
-			ID:    id,
-			Title: task.Title,
-		},
-	}
 }
