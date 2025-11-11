@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	ErrOperationCanceled = errors.New("inmemory: operation canceled")
+	ErrOperationCanceled = errors.New("inmemory: operation canceled, no records written")
 	ErrAlreadyExists     = errors.New("inmemory: already exists")
 	ErrExecuting         = errors.New("inmemory: failed to execute")
 	ErrIncompatible      = errors.New("inmemory: data incompatible: memory stores different type")
@@ -32,10 +32,14 @@ func (s *Storage) Close() {
 
 func (s *Storage) CreateTask(ctx context.Context, task domain.Record) (int, error) {
 	if err := s.store.CreateContext(ctx, task.ID, task); err != nil {
-		if errors.Is(err, inmemory.ErrAlreadyExists) {
+		switch {
+		case errors.Is(err, inmemory.ErrOperationCanceled):
+			return 0, fmt.Errorf("%w: %v", ErrOperationCanceled, err)
+		case errors.Is(err, inmemory.ErrAlreadyExists):
 			return 0, fmt.Errorf("%w: %v", ErrAlreadyExists, err)
+		default:
+			return 0, fmt.Errorf("%v: %w", ErrExecuting, err)
 		}
-		return 0, fmt.Errorf("%v: %w", ErrExecuting, err)
 	}
 	return task.ID, nil
 }

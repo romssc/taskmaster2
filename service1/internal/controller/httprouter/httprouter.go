@@ -4,13 +4,14 @@ import (
 	"net/http"
 	"taskmaster2/service1/internal/adapter/broker/kafkaa"
 	"taskmaster2/service1/internal/adapter/storage/inmemory"
+	"taskmaster2/service1/internal/pkg/idgen/gen"
 	"taskmaster2/service1/internal/usecase/create"
 	"taskmaster2/service1/internal/usecase/list"
 	"taskmaster2/service1/internal/usecase/listid"
 )
 
-func New(storage *inmemory.Storage, broker *kafkaa.Producer) http.Handler {
-	create := create.New(storage, broker)
+func New(storage *inmemory.Storage, broker *kafkaa.Producer, generator *gen.Generator) http.Handler {
+	create := create.New(broker, generator)
 	list := list.New(storage)
 	listid := listid.New(storage)
 	m := http.NewServeMux()

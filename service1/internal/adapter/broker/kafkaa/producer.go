@@ -17,6 +17,7 @@ var (
 	ErrMarshalingEvent   = errors.New("kafka: failed to prepare event")
 	ErrProducingEvent    = errors.New("kafka: failed to produce event")
 	ErrClosed            = errors.New("kafka: failed due to closed broker")
+	ErrOperationCanceled = errors.New("kafka: operation canceled, no events written")
 )
 
 type Config struct {
@@ -27,11 +28,13 @@ type Config struct {
 }
 
 type Producer struct {
+	config   Config
 	producer *kafka.Writer
 }
 
 func New(c Config) *Producer {
 	return &Producer{
+		config: c,
 		producer: &kafka.Writer{
 			Addr:         kafka.TCP(c.Address...),
 			Topic:        c.Topic,
@@ -54,14 +57,18 @@ func (p *Producer) PublishEvent(ctx context.Context, event domain.Event) error {
 		return fmt.Errorf("%w: %v", ErrMarshalingEvent, err)
 	}
 	if err := p.producer.WriteMessages(ctx, kafka.Message{
-		Key:   []byte(strconv.Itoa(event.ID)),
+		Key:   []byte(strconv.Itoa(event.Record.ID)),
 		Value: e,
 		Time:  time.Now(),
 	}); err != nil {
-		if errors.Is(err, kafka.ErrGroupClosed) {
+		switch {
+		case errors.Is(err, context.Canceled):
+			return fmt.Errorf("%w: %v", ErrOperationCanceled, err)
+		case errors.Is(err, kafka.ErrGroupClosed):
 			return fmt.Errorf("%w: %v", ErrClosed, err)
+		default:
+			return fmt.Errorf("%w: %v", ErrProducingEvent, err)
 		}
-		return fmt.Errorf("%w: %v", ErrProducingEvent, err)
 	}
 	return nil
 }

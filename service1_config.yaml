@@ -9,6 +9,6 @@ sqlite3:
 kafka:
   address: 
     - "0.0.0.0:9092"
-  topic: "tasks-events"
-  batch_timeout: 100ms
-  required_acks: 1
+  topic: "tasks"
+  batch_timeout: 50ms
+  required_acks: -1

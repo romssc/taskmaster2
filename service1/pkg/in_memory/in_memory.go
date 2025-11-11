@@ -30,7 +30,7 @@ func (m *InMemory) Close() {
 func (m *InMemory) CreateContext(ctx context.Context, key any, value any) error {
 	select {
 	case <-ctx.Done():
-		return fmt.Errorf("%v: %w", ErrOperationCanceled, ctx.Err())
+		return fmt.Errorf("%w: %v", ErrOperationCanceled, ctx.Err())
 	default:
 		_, ok := m.store.Load(key)
 		if ok {
@@ -77,15 +77,5 @@ func (m *InMemory) AllContext(ctx context.Context) ([]any, error) {
 			return nil, fmt.Errorf("%v: %w", ErrOperationCanceled, ctx.Err())
 		}
 		return pairs, nil
-	}
-}
-
-func (m *InMemory) UpdateContext(ctx context.Context, key any, value any) error {
-	select {
-	case <-ctx.Done():
-		return fmt.Errorf("%v: %w", ErrOperationCanceled, ctx.Err())
-	default:
-		m.store.Store(key, value)
-		return nil
 	}
 }

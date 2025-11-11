@@ -7,42 +7,38 @@ import (
 	"io"
 	"net/http"
 	"taskmaster2/service1/internal/adapter/broker/kafkaa"
-	"taskmaster2/service1/internal/adapter/storage/inmemory"
 	"taskmaster2/service1/internal/domain"
 	"taskmaster2/service1/internal/pkg/json/standartjson"
 	"taskmaster2/service1/internal/pkg/server/httputils"
-	"time"
-
-	"github.com/google/uuid"
 )
 
 var (
-	ErrEmptyTitle        = errors.New("create: client sent a request with an empty task title")
+	ErrEmptyTitle        = errors.New("create: invalid body: empty task title")
 	ErrUnmarshalingBody  = errors.New("create: failed to unmarshal body")
 	ErrReadingBody       = errors.New("create: failed to read a body")
-	ErrAlreadyExists     = errors.New("create task already exists in the database")
-	ErrDatabaseFailure   = errors.New("create: database failed")
 	ErrBrokerUnavailable = errors.New("create: broker unavailable")
 	ErrBrokerFailure     = errors.New("create: broker failed")
+	ErrOperationCanceled = errors.New("create: operation canceled, request killed")
+	ErrGeneratingID      = errors.New("create: failed to generate id")
 )
-
-type Creator interface {
-	CreateTask(ctx context.Context, task domain.Record) (int, error)
-}
 
 type Publisher interface {
 	PublishEvent(ctx context.Context, event domain.Event) error
 }
 
-type Usecase struct {
-	Creator   Creator
-	Publisher Publisher
+type Generator interface {
+	Gen() (int, error)
 }
 
-func New(c Creator, p Publisher) *Usecase {
+type Usecase struct {
+	Publisher Publisher
+	Generator Generator
+}
+
+func New(p Publisher, g Generator) *Usecase {
 	return &Usecase{
-		Creator:   c,
 		Publisher: p,
+		Generator: g,
 	}
 }
 
@@ -79,11 +75,9 @@ func (u *Usecase) HTTPHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
-	output, err := u.createTask(ctx, task)
+	output, err := u.CreateTask(ctx, task)
 	if err != nil {
 		switch {
-		case errors.Is(err, ErrAlreadyExists):
-			httputils.ErrorJSON(w, domain.ErrAlreadyExists, domain.ErrAlreadyExists.Code)
 		case errors.Is(err, ErrBrokerUnavailable):
 			httputils.ErrorJSON(w, domain.ErrBrokerUnavailable, domain.ErrBrokerUnavailable.Code)
 		default:
@@ -109,44 +103,36 @@ func readBody(r io.Reader) (domain.Record, error) {
 
 func validateTask(task domain.Record) error {
 	if task.Title == "" {
-		return ErrEmptyTitle
+		return fmt.Errorf("%w", ErrEmptyTitle)
 	}
 	return nil
 }
 
-func (u *Usecase) createTask(ctx context.Context, task domain.Record) (int, error) {
-	task, event := setValues(task)
-	id, err := u.Creator.CreateTask(ctx, task)
+func (u *Usecase) CreateTask(ctx context.Context, task domain.Record) (int, error) {
+	id, err := u.Generator.Gen()
 	if err != nil {
-		switch {
-		case errors.Is(err, inmemory.ErrAlreadyExists):
-			return 0, fmt.Errorf("%w: %v", ErrAlreadyExists, err)
-		default:
-			return 0, fmt.Errorf("%w: %v", ErrDatabaseFailure, err)
-		}
+		return 0, fmt.Errorf("%w: %v", ErrGeneratingID, err)
 	}
+	event := setValues(id, task)
 	if err := u.Publisher.PublishEvent(ctx, event); err != nil {
 		switch {
+		case errors.Is(err, kafkaa.ErrOperationCanceled):
+			return 0, fmt.Errorf("%w: %v", ErrOperationCanceled, err)
 		case errors.Is(err, kafkaa.ErrClosed):
 			return 0, fmt.Errorf("%w: %v", ErrBrokerUnavailable, err)
 		default:
 			return 0, fmt.Errorf("%w: %v", ErrBrokerFailure, err)
 		}
 	}
-	return id, nil
+	return event.Record.ID, nil
 }
 
-func setValues(task domain.Record) (domain.Record, domain.Event) {
-	uuid := uuid.New().ID()
-	timestamp := time.Now().Local()
-
-	task.ID = int(uuid)
-	task.CreatedAt = timestamp
-	task.Status = domain.StatusProcessing
-	event := domain.Event{
-		ID:     int(uuid),
+func setValues(id int, task domain.Record) domain.Event {
+	return domain.Event{
 		Action: domain.ActionUpdate,
+		Record: domain.Record{
+			ID:    id,
+			Title: task.Title,
+		},
 	}
-
-	return task, event
 }
