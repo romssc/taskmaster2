@@ -16,8 +16,16 @@ var (
 	ErrNotFound          = errors.New("inmemory: no records found")
 )
 
+type Keeper interface {
+	AllContext(ctx context.Context) ([]any, error)
+	Close()
+	CreateContext(ctx context.Context, key any, value any) error
+	LoadContext(ctx context.Context, key any) (any, error)
+	UpdateOrCreateContext(ctx context.Context, key any, value any) error
+}
+
 type Storage struct {
-	store *inmemory.InMemory
+	store Keeper
 }
 
 func New() *Storage {
