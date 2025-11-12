@@ -125,15 +125,6 @@ func (m *mockHandler) Pick(ctx context.Context, action domain.Action, event doma
 	return m.err
 }
 
-type mockEncoder struct {
-	b   []byte
-	err error
-}
-
-func (m *mockEncoder) Marshal(data any) ([]byte, error) {
-	return m.b, m.err
-}
-
 type mockDecoder struct {
 	err error
 }
