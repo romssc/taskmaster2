@@ -2,9 +2,6 @@ package gen
 
 import (
 	"errors"
-	"fmt"
-	"strconv"
-	"time"
 
 	"github.com/google/uuid"
 )
@@ -20,9 +17,5 @@ func New() *Generator {
 }
 
 func (g *Generator) Gen() (int, error) {
-	i, err := strconv.Atoi(fmt.Sprintf("%v%v", uuid.New().ID(), time.Now().UnixNano()))
-	if err != nil {
-		return 0, fmt.Errorf("%w: %v", ErrGenerating, err)
-	}
-	return i, nil
+	return int(uuid.New().ID()), nil
 }
