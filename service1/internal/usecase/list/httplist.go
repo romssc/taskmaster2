@@ -5,13 +5,17 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"taskmaster2/service1/internal/adapter/storage/inmemory"
 	"taskmaster2/service1/internal/domain"
 	"taskmaster2/service1/internal/pkg/server/httputils"
 )
 
 var (
-	ErrDatabaseFailure = errors.New("list: database failed")
+	ErrDatabaseFailure   = errors.New("list: database failed")
+	ErrOperationCanceled = errors.New("list: operation canceled, request killed")
 )
+
+type Config struct{}
 
 type Getter interface {
 	GetTasks(ctx context.Context) ([]domain.Record, error)
@@ -34,7 +38,7 @@ func (u *Usecase) HTTPHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
-	output, err := u.getTasks(ctx)
+	output, err := u.GetTasks(ctx)
 	if err != nil {
 		httputils.ErrorJSON(w, domain.ErrInternal, http.StatusInternalServerError)
 		return
@@ -43,10 +47,17 @@ func (u *Usecase) HTTPHandler(w http.ResponseWriter, r *http.Request) {
 	httputils.SendJSON(w, output)
 }
 
-func (u *Usecase) getTasks(ctx context.Context) ([]domain.Record, error) {
+func (u *Usecase) GetTasks(ctx context.Context) ([]domain.Record, error) {
 	tasks, err := u.Getter.GetTasks(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrDatabaseFailure, err)
+		switch {
+		case errors.Is(err, inmemory.ErrOperationCanceled):
+			return nil, fmt.Errorf("%w: %v", ErrOperationCanceled, err)
+		case errors.Is(err, inmemory.ErrIncompatible):
+			return nil, fmt.Errorf("%w: %v", ErrDatabaseFailure, err)
+		default:
+			return nil, fmt.Errorf("%w: %v", ErrDatabaseFailure, err)
+		}
 	}
 	return tasks, nil
 }

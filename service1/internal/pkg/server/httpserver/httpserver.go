@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 	"taskmaster2/service1/internal/usecase/create"
+	"taskmaster2/service1/internal/usecase/list"
 	"time"
 )
 
@@ -28,6 +29,7 @@ type Config struct {
 
 type Routes struct {
 	Create create.Config `yaml:"create"`
+	List   list.Config   `yaml:"list"`
 }
 
 type Server struct {
