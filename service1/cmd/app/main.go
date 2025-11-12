@@ -72,30 +72,30 @@ func run() error {
 	config.Server.Handler = router
 	server := httpserver.New(config.Server)
 
-	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-	defer cancel()
-	e, c := errgroup.WithContext(ctx)
+	notifyCtx, notifyCancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	defer notifyCancel()
+	e, egCtx := errgroup.WithContext(notifyCtx)
 	e.Go(func() error {
-		if err := server.Run(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			return err
+		if srErr := server.Run(); srErr != nil && !errors.Is(srErr, http.ErrServerClosed) {
+			return srErr
 		}
 		return nil
 	})
 	e.Go(func() error {
-		<-c.Done()
-		ctx, cancel := context.WithTimeout(context.Background(), config.Server.ShutdownTimeout)
-		defer cancel()
-		if err := server.Shutdown(ctx); err != nil {
-			log.Println(err)
+		<-egCtx.Done()
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), config.Server.ShutdownTimeout)
+		defer shutdownCancel()
+		if ssErr := server.Shutdown(shutdownCtx); ssErr != nil {
+			log.Println(ssErr)
 		}
-		if err := broker.Close(); err != nil {
-			log.Println(err)
+		if bcErr := broker.Close(); bcErr != nil {
+			log.Println(bcErr)
 		}
 		storage.Close()
 		return nil
 	})
-	if err := e.Wait(); err != nil && !errors.Is(err, context.Canceled) {
-		return err
+	if waitErr := e.Wait(); waitErr != nil && !errors.Is(waitErr, context.Canceled) {
+		return waitErr
 	}
 
 	return nil

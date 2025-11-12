@@ -19,6 +19,7 @@ var (
 	ErrClosing             = errors.New("kafka: failed to close")
 	ErrUnknownAction       = errors.New("kafka: failed to process message: unknown action")
 	ErrCommitting          = errors.New("kafka: failed to commit")
+	ErrOperationCanceled   = errors.New("kafka: operation canceled")
 )
 
 type Config struct {
@@ -109,34 +110,29 @@ func (c *Consumer) Run(ctx context.Context) error {
 }
 
 func (c *Consumer) process(ctx context.Context) error {
-	msg, err := c.reader.FetchMessage(ctx)
-	if err != nil {
+	msg, fetchErr := c.reader.FetchMessage(ctx)
+	if fetchErr != nil {
 		switch {
-		case errors.Is(err, context.Canceled):
+		case errors.Is(fetchErr, context.Canceled):
 			return fmt.Errorf("%w: %v", ErrConsumerClosed, ctx.Err())
 		default:
-			return fmt.Errorf("%w: %v", ErrFetchingMessages, err)
+			return fmt.Errorf("%w: %v", ErrFetchingMessages, fetchErr)
 		}
 	}
 	var event domain.Event
-	if err := c.Decoder.Unmarshal(msg.Value, &event); err != nil {
-		return fmt.Errorf("%w: %v", ErrUnmarshalingMessage, err)
+	if umErr := c.Decoder.Unmarshal(msg.Value, &event); umErr != nil {
+		return fmt.Errorf("%w: %v", ErrUnmarshalingMessage, umErr)
 	}
-	var e error
 	switch event.Action {
 	case domain.ActionUpdate:
-		e = c.handlers.Update.EventHandler(ctx, event)
-	default:
-		if err := c.reader.CommitMessages(ctx, msg); err != nil {
-			return fmt.Errorf("%w: %v", ErrCommitting, err)
+		updateErr := c.handlers.Update.EventHandler(ctx, event)
+		if updateErr != nil {
+			return fmt.Errorf("%w: %v", ErrProcessingMessage, updateErr)
 		}
-		return fmt.Errorf("%w", ErrUnknownAction)
+	default:
 	}
-	if e != nil {
-		return fmt.Errorf("%w: %v", ErrProcessingMessage, e)
-	}
-	if err := c.reader.CommitMessages(ctx, msg); err != nil {
-		return fmt.Errorf("%w: %v", ErrCommitting, err)
+	if commitErr := c.reader.CommitMessages(ctx, msg); commitErr != nil {
+		return fmt.Errorf("%w: %v", ErrCommitting, commitErr)
 	}
 	return nil
 }

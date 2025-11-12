@@ -43,24 +43,24 @@ func run() error {
 	config.Kafka.Decoder = json
 	broker := kafkaa.New(config.Kafka)
 
-	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-	defer cancel()
-	e, c := errgroup.WithContext(ctx)
+	notifyCtx, notifyCancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	defer notifyCancel()
+	e, egCtx := errgroup.WithContext(notifyCtx)
 	e.Go(func() error {
-		if err := broker.Run(c); err != nil && !errors.Is(err, kafkaa.ErrConsumerClosed) {
-			return err
+		if brErr := broker.Run(egCtx); brErr != nil && !errors.Is(brErr, kafkaa.ErrConsumerClosed) {
+			return brErr
 		}
 		return nil
 	})
 	e.Go(func() error {
-		<-c.Done()
-		if err := broker.Close(); err != nil {
-			log.Panicln(err)
+		<-egCtx.Done()
+		if bcErr := broker.Close(); bcErr != nil {
+			log.Panicln(bcErr)
 		}
 		return nil
 	})
-	if err := e.Wait(); err != nil && !errors.Is(err, context.Canceled) {
-		return err
+	if waitErr := e.Wait(); waitErr != nil && !errors.Is(waitErr, context.Canceled) {
+		return waitErr
 	}
 
 	return nil

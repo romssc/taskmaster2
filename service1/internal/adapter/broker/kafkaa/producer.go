@@ -67,22 +67,22 @@ func (p *Producer) Close() error {
 }
 
 func (p *Producer) PublishEvent(ctx context.Context, event domain.Event) error {
-	e, err := p.encoder.Marshal(event)
-	if err != nil {
-		return fmt.Errorf("%w: %v", ErrMarshalingEvent, err)
+	e, mrErr := p.encoder.Marshal(event)
+	if mrErr != nil {
+		return fmt.Errorf("%w: %v", ErrMarshalingEvent, mrErr)
 	}
-	if err := p.producer.WriteMessages(ctx, kafka.Message{
+	if wmErr := p.producer.WriteMessages(ctx, kafka.Message{
 		Key:   []byte(strconv.Itoa(event.Record.ID)),
 		Value: e,
 		Time:  time.Now(),
-	}); err != nil {
+	}); wmErr != nil {
 		switch {
-		case errors.Is(err, context.Canceled):
-			return fmt.Errorf("%w: %v", ErrOperationCanceled, err)
-		case errors.Is(err, kafka.ErrGroupClosed):
-			return fmt.Errorf("%w: %v", ErrClosed, err)
+		case errors.Is(wmErr, context.Canceled):
+			return fmt.Errorf("%w: %v", ErrOperationCanceled, wmErr)
+		case errors.Is(wmErr, kafka.ErrGroupClosed):
+			return fmt.Errorf("%w: %v", ErrClosed, wmErr)
 		default:
-			return fmt.Errorf("%w: %v", ErrProducingEvent, err)
+			return fmt.Errorf("%w: %v", ErrProducingEvent, wmErr)
 		}
 	}
 	return nil

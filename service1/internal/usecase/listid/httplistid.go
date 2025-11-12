@@ -42,17 +42,17 @@ func (u *Usecase) HTTPHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	idRaw := r.PathValue("id")
-	id, err := validatePathValues(idRaw)
-	if err != nil {
+	id, validateErr := validatePathValues(idRaw)
+	if validateErr != nil {
 		u.sendJSON(w, domain.ErrMalformedPathValue, domain.ErrMalformedPathValue.Code)
 		return
 	}
 
 	ctx := r.Context()
-	output, err := u.GetTaskByID(ctx, id)
-	if err != nil && !errors.Is(err, ErrOperationCanceled) {
+	output, uErr := u.GetTaskByID(ctx, id)
+	if uErr != nil && !errors.Is(uErr, ErrOperationCanceled) {
 		switch {
-		case errors.Is(err, ErrNotFound):
+		case errors.Is(uErr, ErrNotFound):
 			u.sendJSON(w, domain.ErrNotFound, domain.ErrNotFound.Code)
 		default:
 			u.sendJSON(w, domain.ErrInternal, domain.ErrInternal.Code)
