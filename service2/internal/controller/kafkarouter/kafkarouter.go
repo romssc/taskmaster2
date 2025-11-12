@@ -5,8 +5,12 @@ import (
 	"taskmaster2/service2/internal/usecase/update"
 )
 
-func New() kafkaa.Handlers {
+type Config struct {
+	Update *update.Usecase
+}
+
+func New(c *Config) kafkaa.Handlers {
 	return kafkaa.Handlers{
-		Update: update.New(),
+		Update: c.Update,
 	}
 }

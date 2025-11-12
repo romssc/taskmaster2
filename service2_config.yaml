@@ -1,6 +1,0 @@
-kafka:
-  brokers:
-    - "0.0.0.0:9092"
-  topic: "tasks-events"
-  group_id: "task-worker-group"
-  start_offset: -2

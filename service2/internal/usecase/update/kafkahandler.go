@@ -12,20 +12,20 @@ var (
 	ErrOperationCanceled = errors.New("update: operation canceled")
 )
 
-type Usecase struct{}
+type Config struct{}
 
-func New() *Usecase {
-	return &Usecase{}
+type Usecase struct {
+	Config Config
 }
 
 func (u *Usecase) EventHandler(ctx context.Context, event domain.Event) error {
-	if err := u.update(ctx, event); err != nil {
+	if err := u.Update(ctx, event); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (u *Usecase) update(ctx context.Context, event domain.Event) error {
+func (u *Usecase) Update(ctx context.Context, event domain.Event) error {
 	select {
 	case <-ctx.Done():
 		return fmt.Errorf("%v: %w", ErrOperationCanceled, ctx.Err())

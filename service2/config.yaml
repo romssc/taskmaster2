@@ -1,0 +1,8 @@
+kafka:
+  brokers:
+    - "0.0.0.0:9092"
+  topic: "tasks"
+  group_id: "tasks-group"
+  start_offset: -2
+router:
+  update:

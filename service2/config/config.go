@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"taskmaster2/service2/internal/pkg/broker/kafkaa"
+	"taskmaster2/service2/internal/usecase/update"
 
 	"github.com/ilyakaznacheev/cleanenv"
 )
@@ -13,7 +14,12 @@ var (
 )
 
 type Config struct {
-	Kafka kafkaa.Config `yaml:"kafka"`
+	Kafka  kafkaa.Config `yaml:"kafka"`
+	Router Router        `yaml:"router"`
+}
+
+type Router struct {
+	Update update.Config `yaml:"update"`
 }
 
 func New(path string) (Config, error) {
