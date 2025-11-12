@@ -4,6 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"taskmaster2/service1/internal/adapter/broker/kafkaa"
+	"taskmaster2/service1/internal/usecase/create"
+	"taskmaster2/service1/internal/usecase/list"
+	"taskmaster2/service1/internal/usecase/listid"
 
 	"taskmaster2/service1/internal/pkg/server/httpserver"
 
@@ -16,7 +19,14 @@ var (
 
 type Config struct {
 	Server httpserver.Config `yaml:"server"`
+	Router Router            `yaml:"router"`
 	Kafka  kafkaa.Config     `yaml:"kafka"`
+}
+
+type Router struct {
+	Create create.Config `yaml:"create"`
+	List   list.Config   `yaml:"list"`
+	ListID listid.Config `yaml:"list_id"`
 }
 
 func New(path string) (Config, error) {

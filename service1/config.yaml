@@ -4,11 +4,11 @@ server:
   read_timeout: 20s
   write_timeout: 20s
   shutdown_timeout: 20s
-  routes:
-    create:
-      fail_timeout: 10s
-    list:
-    list_id:
+router:
+  create:
+    fail_timeout: 10s
+  list:
+  list_id:
 kafka:
   address: 
     - "0.0.0.0:9092"

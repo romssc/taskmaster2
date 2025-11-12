@@ -6,9 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"taskmaster2/service1/internal/usecase/create"
-	"taskmaster2/service1/internal/usecase/list"
-	"taskmaster2/service1/internal/usecase/listid"
 	"time"
 )
 
@@ -25,24 +22,18 @@ type Config struct {
 
 	ShutdownTimeout time.Duration `yaml:"shutdown_timeout"`
 
-	Routes Routes `yaml:"routes"`
-}
-
-type Routes struct {
-	Create create.Config `yaml:"create"`
-	List   list.Config   `yaml:"list"`
-	ListID listid.Config `yaml:"list_id"`
+	Handler http.Handler
 }
 
 type Server struct {
 	server *http.Server
 }
 
-func New(h http.Handler, c Config) *Server {
+func New(c Config) *Server {
 	return &Server{
 		server: &http.Server{
 			Addr:         strings.Join([]string{c.Host, c.Port}, ":"),
-			Handler:      h,
+			Handler:      c.Handler,
 			ReadTimeout:  c.ReadTimeout,
 			WriteTimeout: c.WriteTimeout,
 		},

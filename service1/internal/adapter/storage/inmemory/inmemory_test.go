@@ -3,8 +3,8 @@ package inmemory
 import (
 	"context"
 	"errors"
+	inmemory "taskmaster2/in_memory"
 	"taskmaster2/service1/internal/domain"
-	inmemory "taskmaster2/service1/pkg/in_memory"
 	"testing"
 
 	"github.com/stretchr/testify/assert"

@@ -25,6 +25,8 @@ type Config struct {
 	BatchTimeout       time.Duration `yaml:"batch_timeout"`
 	RequiredAcks       int           `yaml:"required_acks"`
 	AllowTopicCreation bool          `yaml:"allow_topic_creation"`
+
+	Encoder Encoder
 }
 
 type Publisher interface {
@@ -43,7 +45,7 @@ type Producer struct {
 	encoder Encoder
 }
 
-func New(c Config, e Encoder) *Producer {
+func New(c Config) *Producer {
 	return &Producer{
 		producer: &kafka.Writer{
 			Addr:                   kafka.TCP(c.Address...),
@@ -53,7 +55,7 @@ func New(c Config, e Encoder) *Producer {
 			AllowAutoTopicCreation: c.AllowTopicCreation,
 		},
 
-		encoder: e,
+		encoder: c.Encoder,
 	}
 }
 

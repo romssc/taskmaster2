@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"taskmaster2/service1/internal/adapter/storage/inmemory"
 	"taskmaster2/service1/internal/domain"
-	"taskmaster2/service1/internal/pkg/server/httputils"
 )
 
 var (
@@ -24,30 +23,28 @@ type Getter interface {
 	GetTaskByID(ctx context.Context, id int) (domain.Record, error)
 }
 
+type Encoder interface {
+	Marshal(data any) ([]byte, error)
+}
+
 type Usecase struct {
 	Config Config
 
 	Getter Getter
-}
 
-func New(c Config, g Getter) *Usecase {
-	return &Usecase{
-		Config: c,
-
-		Getter: g,
-	}
+	Encoder Encoder
 }
 
 func (u *Usecase) HTTPHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		httputils.ErrorJSON(w, domain.ErrMethodNotAllowed, domain.ErrMethodNotAllowed.Code)
+		u.sendJSON(w, domain.ErrMethodNotAllowed, domain.ErrMethodNotAllowed.Code)
 		return
 	}
 
 	idRaw := r.PathValue("id")
 	id, err := validatePathValues(idRaw)
 	if err != nil {
-		httputils.ErrorJSON(w, domain.ErrMalformedPathValue, domain.ErrMalformedPathValue.Code)
+		u.sendJSON(w, domain.ErrMalformedPathValue, domain.ErrMalformedPathValue.Code)
 		return
 	}
 
@@ -56,14 +53,14 @@ func (u *Usecase) HTTPHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil && !errors.Is(err, ErrOperationCanceled) {
 		switch {
 		case errors.Is(err, ErrNotFound):
-			httputils.ErrorJSON(w, domain.ErrNotFound, domain.ErrNotFound.Code)
+			u.sendJSON(w, domain.ErrNotFound, domain.ErrNotFound.Code)
 		default:
-			httputils.ErrorJSON(w, domain.ErrInternal, domain.ErrInternal.Code)
+			u.sendJSON(w, domain.ErrInternal, domain.ErrInternal.Code)
 		}
 		return
 	}
 
-	httputils.SendJSON(w, output)
+	u.sendJSON(w, output, http.StatusOK)
 }
 
 func validatePathValues(id string) (int, error) {
@@ -72,6 +69,17 @@ func validatePathValues(id string) (int, error) {
 		return 0, ErrMalformedID
 	}
 	return i, nil
+}
+
+func (u *Usecase) sendJSON(w http.ResponseWriter, data any, code int) {
+	d, err := u.Encoder.Marshal(data)
+	if err != nil {
+		http.Error(w, domain.ErrInternal.Message, domain.ErrInternal.Code)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	w.Write(d)
 }
 
 func (u *Usecase) GetTaskByID(ctx context.Context, id int) (domain.Record, error) {

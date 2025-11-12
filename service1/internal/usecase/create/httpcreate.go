@@ -9,7 +9,6 @@ import (
 	"taskmaster2/service1/internal/adapter/broker/kafkaa"
 	"taskmaster2/service1/internal/adapter/storage/inmemory"
 	"taskmaster2/service1/internal/domain"
-	"taskmaster2/service1/internal/pkg/server/httputils"
 	"time"
 )
 
@@ -44,6 +43,10 @@ type Timer interface {
 	TimeNow() int64
 }
 
+type Encoder interface {
+	Marshal(data any) ([]byte, error)
+}
+
 type Decoder interface {
 	Unmarshal(data []byte, v any) error
 }
@@ -53,48 +56,38 @@ type Usecase struct {
 
 	Creator   Creator
 	Publisher Publisher
+
 	Generator Generator
 	Timer     Timer
+	Encoder   Encoder
 	Decoder   Decoder
-}
-
-func New(c Config, cr Creator, p Publisher, g Generator, t Timer, d Decoder) *Usecase {
-	return &Usecase{
-		Config: c,
-
-		Creator:   cr,
-		Publisher: p,
-		Generator: g,
-		Timer:     t,
-		Decoder:   d,
-	}
 }
 
 func (u *Usecase) HTTPHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		httputils.ErrorJSON(w, domain.ErrMethodNotAllowed, domain.ErrMethodNotAllowed.Code)
+		u.sendJSON(w, domain.ErrMethodNotAllowed, domain.ErrMethodNotAllowed.Code)
 		return
 	}
 
 	defer r.Body.Close()
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		httputils.ErrorJSON(w, domain.ErrMalformedBody, domain.ErrMalformedBody.Code)
+		u.sendJSON(w, domain.ErrMalformedBody, domain.ErrMalformedBody.Code)
 		return
 	}
 	var task domain.Record
 	if err := u.Decoder.Unmarshal(body, &task); err != nil {
-		httputils.ErrorJSON(w, domain.ErrMalformedBody, domain.ErrMalformedBody.Code)
+		u.sendJSON(w, domain.ErrMalformedBody, domain.ErrMalformedBody.Code)
 		return
 	}
 
 	if err := validateTask(task); err != nil {
 		switch {
 		case errors.Is(err, ErrEmptyTitle):
-			httputils.ErrorJSON(w, domain.ErrEmptyTitle, domain.ErrEmptyTitle.Code)
+			u.sendJSON(w, domain.ErrEmptyTitle, domain.ErrEmptyTitle.Code)
 			return
 		default:
-			httputils.ErrorJSON(w, domain.ErrInternal, domain.ErrInternal.Code)
+			u.sendJSON(w, domain.ErrInternal, domain.ErrInternal.Code)
 			return
 		}
 	}
@@ -104,16 +97,16 @@ func (u *Usecase) HTTPHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil && !errors.Is(err, ErrOperationCanceled) {
 		switch {
 		case errors.Is(err, ErrStorageAlreadyExists):
-			httputils.ErrorJSON(w, domain.ErrAlreadyExists, domain.ErrAlreadyExists.Code)
+			u.sendJSON(w, domain.ErrAlreadyExists, domain.ErrAlreadyExists.Code)
 		case errors.Is(err, ErrBrokerUnavailable):
-			httputils.ErrorJSON(w, domain.ErrBrokerUnavailable, domain.ErrBrokerUnavailable.Code)
+			u.sendJSON(w, domain.ErrBrokerUnavailable, domain.ErrBrokerUnavailable.Code)
 		default:
-			httputils.ErrorJSON(w, domain.ErrInternal, domain.ErrInternal.Code)
+			u.sendJSON(w, domain.ErrInternal, domain.ErrInternal.Code)
 		}
 		return
 	}
 
-	httputils.SendJSON(w, event.Record.ID)
+	u.sendJSON(w, event.Record.ID, http.StatusOK)
 }
 
 func validateTask(task domain.Record) error {
@@ -121,6 +114,17 @@ func validateTask(task domain.Record) error {
 		return fmt.Errorf("%w", ErrEmptyTitle)
 	}
 	return nil
+}
+
+func (u *Usecase) sendJSON(w http.ResponseWriter, data any, code int) {
+	d, err := u.Encoder.Marshal(data)
+	if err != nil {
+		http.Error(w, domain.ErrInternal.Message, domain.ErrInternal.Code)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	w.Write(d)
 }
 
 func (u *Usecase) CreateTask(ctx context.Context, task domain.Record) (domain.Event, error) {

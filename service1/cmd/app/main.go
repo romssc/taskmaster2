@@ -17,6 +17,9 @@ import (
 	"taskmaster2/service1/internal/pkg/json/standartjson"
 	"taskmaster2/service1/internal/pkg/server/httpserver"
 	"taskmaster2/service1/internal/pkg/timestamp/standarttime"
+	"taskmaster2/service1/internal/usecase/create"
+	"taskmaster2/service1/internal/usecase/list"
+	"taskmaster2/service1/internal/usecase/listid"
 
 	"golang.org/x/sync/errgroup"
 )
@@ -29,17 +32,45 @@ func main() {
 
 func run() error {
 	configPath := loadEnvs()
+
 	config, err := config.New(configPath)
 	if err != nil {
 		return err
 	}
+
 	generator := uuidgen.New()
 	timer := standarttime.New()
 	json := standartjson.New()
+
 	storage := inmemory.New()
-	broker := kafkaa.New(config.Kafka, json)
-	router := httprouter.New(config.Server, storage, broker, generator, timer, json)
-	server := httpserver.New(router, config.Server)
+
+	config.Kafka.Encoder = json
+	broker := kafkaa.New(config.Kafka)
+
+	router := httprouter.New(&httprouter.Config{
+		Create: &create.Usecase{
+			Config:    config.Router.Create,
+			Creator:   storage,
+			Publisher: broker,
+			Generator: generator,
+			Timer:     timer,
+			Encoder:   json,
+			Decoder:   json,
+		},
+		List: &list.Usecase{
+			Config:  config.Router.List,
+			Getter:  storage,
+			Encoder: json,
+		},
+		ListID: &listid.Usecase{
+			Config:  config.Router.ListID,
+			Getter:  storage,
+			Encoder: json,
+		},
+	})
+
+	config.Server.Handler = router
+	server := httpserver.New(config.Server)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	defer cancel()
@@ -73,7 +104,7 @@ func run() error {
 func loadEnvs() string {
 	configPath := os.Getenv("CONFIG_PATH")
 	if configPath == "" {
-		configPath = "service1_config.yaml"
+		configPath = "service1/config.yaml"
 	}
 	return configPath
 }

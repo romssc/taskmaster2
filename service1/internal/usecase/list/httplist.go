@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"taskmaster2/service1/internal/adapter/storage/inmemory"
 	"taskmaster2/service1/internal/domain"
-	"taskmaster2/service1/internal/pkg/server/httputils"
 )
 
 var (
@@ -21,34 +20,43 @@ type Getter interface {
 	GetTasks(ctx context.Context) ([]domain.Record, error)
 }
 
+type Encoder interface {
+	Marshal(data any) ([]byte, error)
+}
+
 type Usecase struct {
 	Config Config
 
 	Getter Getter
-}
 
-func New(c Config, g Getter) *Usecase {
-	return &Usecase{
-		Config: c,
-
-		Getter: g,
-	}
+	Encoder Encoder
 }
 
 func (u *Usecase) HTTPHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		httputils.ErrorJSON(w, domain.ErrMethodNotAllowed, http.StatusMethodNotAllowed)
+		u.sendJSON(w, domain.ErrMethodNotAllowed, http.StatusMethodNotAllowed)
 		return
 	}
 
 	ctx := r.Context()
 	output, err := u.GetTasks(ctx)
 	if err != nil && !errors.Is(err, ErrOperationCanceled) {
-		httputils.ErrorJSON(w, domain.ErrInternal, http.StatusInternalServerError)
+		u.sendJSON(w, domain.ErrInternal, http.StatusInternalServerError)
 		return
 	}
 
-	httputils.SendJSON(w, output)
+	u.sendJSON(w, output, http.StatusOK)
+}
+
+func (u *Usecase) sendJSON(w http.ResponseWriter, data any, code int) {
+	d, err := u.Encoder.Marshal(data)
+	if err != nil {
+		http.Error(w, domain.ErrInternal.Message, domain.ErrInternal.Code)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	w.Write(d)
 }
 
 func (u *Usecase) GetTasks(ctx context.Context) ([]domain.Record, error) {
