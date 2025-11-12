@@ -27,12 +27,18 @@ type Config struct {
 	AllowTopicCreation bool          `yaml:"allow_topic_creation"`
 }
 
+type Publisher interface {
+	Close() error
+	Stats() kafka.WriterStats
+	WriteMessages(ctx context.Context, msgs ...kafka.Message) error
+}
+
 type Encoder interface {
 	Marshal(data any) ([]byte, error)
 }
 
 type Producer struct {
-	producer *kafka.Writer
+	producer Publisher
 
 	encoder Encoder
 }

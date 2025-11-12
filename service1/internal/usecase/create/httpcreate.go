@@ -100,7 +100,7 @@ func (u *Usecase) HTTPHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
-	output, err := u.CreateTask(ctx, task)
+	event, err := u.CreateTask(ctx, task)
 	if err != nil && !errors.Is(err, ErrOperationCanceled) {
 		switch {
 		case errors.Is(err, ErrStorageAlreadyExists):
@@ -113,7 +113,7 @@ func (u *Usecase) HTTPHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	httputils.SendJSON(w, output)
+	httputils.SendJSON(w, event.Record.ID)
 }
 
 func validateTask(task domain.Record) error {
