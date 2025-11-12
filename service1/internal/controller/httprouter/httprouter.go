@@ -15,8 +15,8 @@ import (
 
 func New(c httpserver.Config, s *inmemory.Storage, b *kafkaa.Producer, g *uuidgen.Generator, t *standarttime.Time, d *standartjson.JSON) http.Handler {
 	create := create.New(c.Routes.Create, s, b, g, t, d)
-	list := list.New(s)
-	listid := listid.New(s)
+	list := list.New(c.Routes.List, s)
+	listid := listid.New(c.Routes.ListID, s)
 	m := http.NewServeMux()
 	m.HandleFunc("/list", list.HTTPHandler)
 	m.HandleFunc("/list/{id}", listid.HTTPHandler)

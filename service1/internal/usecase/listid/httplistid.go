@@ -18,16 +18,22 @@ var (
 	ErrOperationCanceled = errors.New("listid: operation canceled, request killed")
 )
 
+type Config struct{}
+
 type Getter interface {
 	GetTaskByID(ctx context.Context, id int) (domain.Record, error)
 }
 
 type Usecase struct {
+	Config Config
+
 	Getter Getter
 }
 
-func New(g Getter) *Usecase {
+func New(c Config, g Getter) *Usecase {
 	return &Usecase{
+		Config: c,
+
 		Getter: g,
 	}
 }

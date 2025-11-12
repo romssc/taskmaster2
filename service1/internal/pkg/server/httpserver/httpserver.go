@@ -8,6 +8,7 @@ import (
 	"strings"
 	"taskmaster2/service1/internal/usecase/create"
 	"taskmaster2/service1/internal/usecase/list"
+	"taskmaster2/service1/internal/usecase/listid"
 	"time"
 )
 
@@ -30,6 +31,7 @@ type Config struct {
 type Routes struct {
 	Create create.Config `yaml:"create"`
 	List   list.Config   `yaml:"list"`
+	ListID listid.Config `yaml:"list_id"`
 }
 
 type Server struct {

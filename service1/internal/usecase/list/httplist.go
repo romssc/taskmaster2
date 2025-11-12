@@ -22,11 +22,15 @@ type Getter interface {
 }
 
 type Usecase struct {
+	Config Config
+
 	Getter Getter
 }
 
-func New(g Getter) *Usecase {
+func New(c Config, g Getter) *Usecase {
 	return &Usecase{
+		Config: c,
+
 		Getter: g,
 	}
 }
