@@ -4,6 +4,9 @@ server:
   read_timeout: 20s
   write_timeout: 20s
   shutdown_timeout: 20s
+  routes:
+    create:
+      fail_timeout: 10s
 sqlite3:
   path: ".tasks.db"
 kafka:

@@ -34,7 +34,7 @@ func run() error {
 	storage := inmemory.New()
 	broker := kafkaa.New(config.Kafka)
 	generator := gen.New()
-	router := httprouter.New(storage, broker, generator)
+	router := httprouter.New(config.Server, storage, broker, generator)
 	server := httpserver.New(router, config.Server)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)

@@ -44,6 +44,18 @@ func (s *Storage) CreateTask(ctx context.Context, task domain.Record) (int, erro
 	return task.ID, nil
 }
 
+func (s *Storage) UpdateOrCreateTask(ctx context.Context, task domain.Record) error {
+	if err := s.store.UpdateOrCreateContext(ctx, task.ID, task); err != nil {
+		switch {
+		case errors.Is(err, inmemory.ErrOperationCanceled):
+			return fmt.Errorf("%w: %v", ErrOperationCanceled, err)
+		default:
+			return fmt.Errorf("%v: %w", ErrExecuting, err)
+		}
+	}
+	return nil
+}
+
 func (s *Storage) GetTaskByID(ctx context.Context, id int) (domain.Record, error) {
 	record, err := s.store.LoadContext(ctx, id)
 	if err != nil {

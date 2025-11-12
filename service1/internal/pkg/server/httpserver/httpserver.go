@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"taskmaster2/service1/internal/usecase/create"
 	"time"
 )
 
@@ -21,6 +22,12 @@ type Config struct {
 	WriteTimeout time.Duration `yaml:"write_timeout"`
 
 	ShutdownTimeout time.Duration `yaml:"shutdown_timeout"`
+
+	Routes Routes `yaml:"routes"`
+}
+
+type Routes struct {
+	Create create.Config `yaml:"create"`
 }
 
 type Server struct {

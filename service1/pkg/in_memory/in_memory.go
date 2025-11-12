@@ -41,6 +41,16 @@ func (m *InMemory) CreateContext(ctx context.Context, key any, value any) error 
 	}
 }
 
+func (m *InMemory) UpdateOrCreateContext(ctx context.Context, key any, value any) error {
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("%w: %v", ErrOperationCanceled, ctx.Err())
+	default:
+		m.store.Store(key, value)
+		return nil
+	}
+}
+
 func (m *InMemory) LoadContext(ctx context.Context, key any) (any, error) {
 	select {
 	case <-ctx.Done():
