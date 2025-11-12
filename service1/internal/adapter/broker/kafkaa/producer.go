@@ -21,10 +21,11 @@ var (
 )
 
 type Config struct {
-	Address      []string      `yaml:"address"`
-	Topic        string        `yaml:"topic"`
-	BatchTimeout time.Duration `yaml:"batch_timeout"`
-	RequiredAcks int           `yaml:"required_acks"`
+	Address            []string      `yaml:"address"`
+	Topic              string        `yaml:"topic"`
+	BatchTimeout       time.Duration `yaml:"batch_timeout"`
+	RequiredAcks       int           `yaml:"required_acks"`
+	AllowTopicCreation bool          `yaml:"allow_topic_creation"`
 }
 
 type Producer struct {
@@ -36,10 +37,11 @@ func New(c Config) *Producer {
 	return &Producer{
 		config: c,
 		producer: &kafka.Writer{
-			Addr:         kafka.TCP(c.Address...),
-			Topic:        c.Topic,
-			BatchTimeout: c.BatchTimeout,
-			RequiredAcks: kafka.RequiredAcks(c.RequiredAcks),
+			Addr:                   kafka.TCP(c.Address...),
+			Topic:                  c.Topic,
+			BatchTimeout:           c.BatchTimeout,
+			RequiredAcks:           kafka.RequiredAcks(c.RequiredAcks),
+			AllowAutoTopicCreation: c.AllowTopicCreation,
 		},
 	}
 }

@@ -7,11 +7,10 @@ server:
   routes:
     create:
       fail_timeout: 10s
-sqlite3:
-  path: ".tasks.db"
 kafka:
   address: 
     - "0.0.0.0:9092"
   topic: "tasks"
   batch_timeout: 50ms
   required_acks: -1
+  allow_topic_creation: true

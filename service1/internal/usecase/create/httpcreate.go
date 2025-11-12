@@ -96,7 +96,6 @@ func (u *Usecase) HTTPHandler(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, ErrBrokerUnavailable):
 			httputils.ErrorJSON(w, domain.ErrBrokerUnavailable, domain.ErrBrokerUnavailable.Code)
 		default:
-			fmt.Println(err)
 			httputils.ErrorJSON(w, domain.ErrInternal, domain.ErrInternal.Code)
 		}
 		return
