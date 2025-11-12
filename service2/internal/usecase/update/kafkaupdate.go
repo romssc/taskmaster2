@@ -28,11 +28,11 @@ func (u *Usecase) EventHandler(ctx context.Context, event domain.Event) error {
 func (u *Usecase) Update(ctx context.Context, event domain.Event) error {
 	select {
 	case <-ctx.Done():
-		return fmt.Errorf("%v: %w", ErrOperationCanceled, ctx.Err())
+		return fmt.Errorf("%w: %v", ErrOperationCanceled, ctx.Err())
 	default:
 		select {
 		case <-ctx.Done():
-			return fmt.Errorf("%v: %w", ErrOperationCanceled, ctx.Err())
+			return fmt.Errorf("%w: %v", ErrOperationCanceled, ctx.Err())
 		case <-time.After(time.Second * 10):
 		}
 		return nil
