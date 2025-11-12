@@ -12,9 +12,10 @@ import (
 )
 
 var (
-	ErrMalformedID     = errors.New("listid: client sent a malformed id")
-	ErrNotFound        = errors.New("listid: no records found")
-	ErrDatabaseFailure = errors.New("listid: database failed")
+	ErrMalformedID       = errors.New("listid: client sent a malformed id")
+	ErrNotFound          = errors.New("listid: no records found")
+	ErrDatabaseFailure   = errors.New("listid: database failed")
+	ErrOperationCanceled = errors.New("listid: operation canceled, request killed")
 )
 
 type Getter interface {
@@ -36,15 +37,17 @@ func (u *Usecase) HTTPHandler(w http.ResponseWriter, r *http.Request) {
 		httputils.ErrorJSON(w, domain.ErrMethodNotAllowed, domain.ErrMethodNotAllowed.Code)
 		return
 	}
-	id, err := readPathValues(r)
+
+	idRaw := r.PathValue("id")
+	id, err := validatePathValues(idRaw)
 	if err != nil {
 		httputils.ErrorJSON(w, domain.ErrMalformedPathValue, domain.ErrMalformedPathValue.Code)
 		return
 	}
 
 	ctx := r.Context()
-	output, err := u.getTaskByID(ctx, id)
-	if err != nil {
+	output, err := u.GetTaskByID(ctx, id)
+	if err != nil && !errors.Is(err, ErrOperationCanceled) {
 		switch {
 		case errors.Is(err, ErrNotFound):
 			httputils.ErrorJSON(w, domain.ErrNotFound, domain.ErrNotFound.Code)
@@ -57,8 +60,7 @@ func (u *Usecase) HTTPHandler(w http.ResponseWriter, r *http.Request) {
 	httputils.SendJSON(w, output)
 }
 
-func readPathValues(r *http.Request) (int, error) {
-	id := r.PathValue("id")
+func validatePathValues(id string) (int, error) {
 	i, err := strconv.Atoi(id)
 	if err != nil {
 		return 0, ErrMalformedID
@@ -66,10 +68,12 @@ func readPathValues(r *http.Request) (int, error) {
 	return i, nil
 }
 
-func (u *Usecase) getTaskByID(ctx context.Context, id int) (domain.Record, error) {
+func (u *Usecase) GetTaskByID(ctx context.Context, id int) (domain.Record, error) {
 	task, err := u.Getter.GetTaskByID(ctx, id)
 	if err != nil {
 		switch {
+		case errors.Is(err, inmemory.ErrOperationCanceled):
+			return domain.Record{}, fmt.Errorf("%w: %v", ErrOperationCanceled, err)
 		case errors.Is(err, inmemory.ErrNotFound):
 			return domain.Record{}, fmt.Errorf("%w: %v", ErrNotFound, err)
 		default:

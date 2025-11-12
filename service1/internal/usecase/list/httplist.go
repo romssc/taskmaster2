@@ -39,7 +39,7 @@ func (u *Usecase) HTTPHandler(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 	output, err := u.GetTasks(ctx)
-	if err != nil {
+	if err != nil && !errors.Is(err, ErrOperationCanceled) {
 		httputils.ErrorJSON(w, domain.ErrInternal, http.StatusInternalServerError)
 		return
 	}

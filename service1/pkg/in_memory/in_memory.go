@@ -54,7 +54,7 @@ func (m *InMemory) UpdateOrCreateContext(ctx context.Context, key any, value any
 func (m *InMemory) LoadContext(ctx context.Context, key any) (any, error) {
 	select {
 	case <-ctx.Done():
-		return nil, fmt.Errorf("%v: %w", ErrOperationCanceled, ctx.Err())
+		return nil, fmt.Errorf("%w: %v", ErrOperationCanceled, ctx.Err())
 	default:
 		value, ok := m.store.Load(key)
 		if !ok {
@@ -67,7 +67,7 @@ func (m *InMemory) LoadContext(ctx context.Context, key any) (any, error) {
 func (m *InMemory) AllContext(ctx context.Context) ([]any, error) {
 	select {
 	case <-ctx.Done():
-		return nil, fmt.Errorf("%v: %w", ErrOperationCanceled, ctx.Err())
+		return nil, fmt.Errorf("%w: %v", ErrOperationCanceled, ctx.Err())
 	default:
 		var pairs []any
 		var counter uint64
@@ -84,7 +84,7 @@ func (m *InMemory) AllContext(ctx context.Context) ([]any, error) {
 			return true
 		})
 		if ctx.Err() != nil {
-			return nil, fmt.Errorf("%v: %w", ErrOperationCanceled, ctx.Err())
+			return nil, fmt.Errorf("%w: %v", ErrOperationCanceled, ctx.Err())
 		}
 		return pairs, nil
 	}

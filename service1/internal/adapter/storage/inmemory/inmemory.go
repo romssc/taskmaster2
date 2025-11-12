@@ -38,7 +38,7 @@ func (s *Storage) CreateTask(ctx context.Context, task domain.Record) (int, erro
 		case errors.Is(err, inmemory.ErrAlreadyExists):
 			return 0, fmt.Errorf("%w: %v", ErrAlreadyExists, err)
 		default:
-			return 0, fmt.Errorf("%v: %w", ErrExecuting, err)
+			return 0, fmt.Errorf("%w: %v", ErrExecuting, err)
 		}
 	}
 	return task.ID, nil
@@ -50,7 +50,7 @@ func (s *Storage) UpdateOrCreateTask(ctx context.Context, task domain.Record) er
 		case errors.Is(err, inmemory.ErrOperationCanceled):
 			return fmt.Errorf("%w: %v", ErrOperationCanceled, err)
 		default:
-			return fmt.Errorf("%v: %w", ErrExecuting, err)
+			return fmt.Errorf("%w: %v", ErrExecuting, err)
 		}
 	}
 	return nil
@@ -59,10 +59,14 @@ func (s *Storage) UpdateOrCreateTask(ctx context.Context, task domain.Record) er
 func (s *Storage) GetTaskByID(ctx context.Context, id int) (domain.Record, error) {
 	record, err := s.store.LoadContext(ctx, id)
 	if err != nil {
-		if errors.Is(err, inmemory.ErrNotFound) {
+		switch {
+		case errors.Is(err, inmemory.ErrOperationCanceled):
+			return domain.Record{}, fmt.Errorf("%w: %v", ErrOperationCanceled, err)
+		case errors.Is(err, inmemory.ErrNotFound):
 			return domain.Record{}, fmt.Errorf("%w: %v", ErrNotFound, err)
+		default:
+			return domain.Record{}, fmt.Errorf("%w: %v", ErrExecuting, err)
 		}
-		return domain.Record{}, fmt.Errorf("%v: %w", ErrExecuting, err)
 	}
 	task, ok := record.(domain.Record)
 	if !ok {
@@ -74,7 +78,12 @@ func (s *Storage) GetTaskByID(ctx context.Context, id int) (domain.Record, error
 func (s *Storage) GetTasks(ctx context.Context) ([]domain.Record, error) {
 	records, err := s.store.AllContext(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("%v: %w", ErrExecuting, err)
+		switch {
+		case errors.Is(err, inmemory.ErrOperationCanceled):
+			return nil, fmt.Errorf("%w: %v", ErrOperationCanceled, err)
+		default:
+			return nil, fmt.Errorf("%w: %v", ErrExecuting, err)
+		}
 	}
 	var counter uint64
 	tasks := make([]domain.Record, 0, len(records))
@@ -83,7 +92,7 @@ func (s *Storage) GetTasks(ctx context.Context) ([]domain.Record, error) {
 		if counter%50 == 0 {
 			select {
 			case <-ctx.Done():
-				return nil, fmt.Errorf("%v: %w", ErrOperationCanceled, ctx.Err())
+				return nil, fmt.Errorf("%w: %v", ErrOperationCanceled, ctx.Err())
 			default:
 			}
 		}
