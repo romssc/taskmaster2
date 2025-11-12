@@ -7,7 +7,8 @@ import (
 )
 
 func ErrorJSON(w http.ResponseWriter, data any, code int) {
-	d, err := standartjson.Marshal(data)
+	json := standartjson.New()
+	d, err := json.Marshal(data)
 	if err != nil {
 		http.Error(w, domain.ErrInternal.Message, domain.ErrInternal.Code)
 		return
@@ -18,7 +19,8 @@ func ErrorJSON(w http.ResponseWriter, data any, code int) {
 }
 
 func SendJSON(w http.ResponseWriter, data any) {
-	d, err := standartjson.Marshal(data)
+	json := standartjson.New()
+	d, err := json.Marshal(data)
 	if err != nil {
 		http.Error(w, domain.ErrInternal.Message, domain.ErrInternal.Code)
 		return

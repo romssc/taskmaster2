@@ -1,4 +1,4 @@
-package gen
+package uuidgen
 
 import (
 	"errors"

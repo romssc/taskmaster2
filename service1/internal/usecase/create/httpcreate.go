@@ -9,7 +9,6 @@ import (
 	"taskmaster2/service1/internal/adapter/broker/kafkaa"
 	"taskmaster2/service1/internal/adapter/storage/inmemory"
 	"taskmaster2/service1/internal/domain"
-	"taskmaster2/service1/internal/pkg/json/standartjson"
 	"taskmaster2/service1/internal/pkg/server/httputils"
 	"time"
 )
@@ -41,20 +40,33 @@ type Generator interface {
 	Gen() (int, error)
 }
 
+type Timer interface {
+	TimeNow() int64
+}
+
+type Decoder interface {
+	Unmarshal(data []byte, v any) error
+}
+
 type Usecase struct {
 	Config Config
 
 	Creator   Creator
 	Publisher Publisher
 	Generator Generator
+	Timer     Timer
+	Decoder   Decoder
 }
 
-func New(c Config, cr Creator, p Publisher, g Generator) *Usecase {
+func New(c Config, cr Creator, p Publisher, g Generator, t Timer, d Decoder) *Usecase {
 	return &Usecase{
-		Config:    c,
+		Config: c,
+
 		Creator:   cr,
 		Publisher: p,
 		Generator: g,
+		Timer:     t,
+		Decoder:   d,
 	}
 }
 
@@ -71,7 +83,7 @@ func (u *Usecase) HTTPHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var task domain.Record
-	if err := standartjson.Unmarshal(body, &task); err != nil {
+	if err := u.Decoder.Unmarshal(body, &task); err != nil {
 		httputils.ErrorJSON(w, domain.ErrMalformedBody, domain.ErrMalformedBody.Code)
 		return
 	}
@@ -152,12 +164,14 @@ func (u *Usecase) createEvent(task domain.Record) (domain.Event, error) {
 	if err != nil {
 		return domain.Event{}, fmt.Errorf("%w: %v", ErrGeneratingID, err)
 	}
+	time := u.Timer.TimeNow()
 	return domain.Event{
 		Action: domain.ActionUpdate,
 		Record: domain.Record{
-			ID:     id,
-			Title:  task.Title,
-			Status: domain.StatusNew,
+			ID:        id,
+			Title:     task.Title,
+			CreatedAt: time,
+			Status:    domain.StatusNew,
 		},
 	}, nil
 }

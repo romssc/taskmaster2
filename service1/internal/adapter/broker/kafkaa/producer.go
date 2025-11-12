@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strconv"
 	"taskmaster2/service1/internal/domain"
-	"taskmaster2/service1/internal/pkg/json/standartjson"
 	"time"
 
 	"github.com/segmentio/kafka-go"
@@ -28,14 +27,18 @@ type Config struct {
 	AllowTopicCreation bool          `yaml:"allow_topic_creation"`
 }
 
-type Producer struct {
-	config   Config
-	producer *kafka.Writer
+type Encoder interface {
+	Marshal(data any) ([]byte, error)
 }
 
-func New(c Config) *Producer {
+type Producer struct {
+	producer *kafka.Writer
+
+	encoder Encoder
+}
+
+func New(c Config, e Encoder) *Producer {
 	return &Producer{
-		config: c,
 		producer: &kafka.Writer{
 			Addr:                   kafka.TCP(c.Address...),
 			Topic:                  c.Topic,
@@ -43,6 +46,8 @@ func New(c Config) *Producer {
 			RequiredAcks:           kafka.RequiredAcks(c.RequiredAcks),
 			AllowAutoTopicCreation: c.AllowTopicCreation,
 		},
+
+		encoder: e,
 	}
 }
 
@@ -54,7 +59,7 @@ func (p *Producer) Close() error {
 }
 
 func (p *Producer) PublishEvent(ctx context.Context, event domain.Event) error {
-	e, err := standartjson.Marshal(event)
+	e, err := p.encoder.Marshal(event)
 	if err != nil {
 		return fmt.Errorf("%w: %v", ErrMarshalingEvent, err)
 	}

@@ -13,8 +13,10 @@ import (
 	"taskmaster2/service1/internal/adapter/broker/kafkaa"
 	"taskmaster2/service1/internal/adapter/storage/inmemory"
 	"taskmaster2/service1/internal/controller/httprouter"
-	"taskmaster2/service1/internal/pkg/idgen/gen"
+	"taskmaster2/service1/internal/pkg/id/uuidgen"
+	"taskmaster2/service1/internal/pkg/json/standartjson"
 	"taskmaster2/service1/internal/pkg/server/httpserver"
+	"taskmaster2/service1/internal/pkg/timestamp/standarttime"
 
 	"golang.org/x/sync/errgroup"
 )
@@ -31,10 +33,12 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	generator := uuidgen.New()
+	timer := standarttime.New()
+	json := standartjson.New()
 	storage := inmemory.New()
-	broker := kafkaa.New(config.Kafka)
-	generator := gen.New()
-	router := httprouter.New(config.Server, storage, broker, generator)
+	broker := kafkaa.New(config.Kafka, json)
+	router := httprouter.New(config.Server, storage, broker, generator, timer, json)
 	server := httpserver.New(router, config.Server)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
