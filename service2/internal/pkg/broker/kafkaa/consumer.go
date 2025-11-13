@@ -17,7 +17,7 @@ var (
 	ErrUnmarshalingMessage = errors.New("kafka: failed while unmarshaling message")
 	ErrConsumerClosed      = errors.New("kafka: failed due to consumer being closed")
 	ErrProcessingMessage   = errors.New("kafka: failed to process message")
-	ErrClosing             = errors.New("kafka: failed to close")
+	ErrClosingConsumer     = errors.New("kafka: failed to close consumer")
 	ErrUnknownAction       = errors.New("kafka: failed to process message: unknown action")
 	ErrCommitting          = errors.New("kafka: failed to commit")
 	ErrOperationCanceled   = errors.New("kafka: operation canceled")
@@ -27,7 +27,7 @@ type Config struct {
 	Brokers        []string      `yaml:"brokers"`
 	Topic          string        `yaml:"topic"`
 	GroupID        string        `yaml:"group_id"`
-	CommitInterval int           `yaml:"commit_interval"`
+	CommitInterval time.Duration `yaml:"commit_interval"`
 	SessionTimeout time.Duration `yaml:"session_timeout"`
 	StartOffset    int           `yaml:"start_offset"`
 
@@ -35,11 +35,6 @@ type Config struct {
 
 	Encoder Encoder
 	Decoder Decoder
-}
-
-type Consumer struct {
-	reader     Reader
-	proccessor Proccessor
 }
 
 type Reader interface {
@@ -56,18 +51,27 @@ type Reader interface {
 	Stats() kafka.ReaderStats
 }
 
+type Consumer struct {
+	config Config
+
+	reader     Reader
+	proccessor Proccessor
+}
+
 func New(c Config) *Consumer {
 	reader := kafka.NewReader(kafka.ReaderConfig{
 		Brokers:        c.Brokers,
 		Topic:          c.Topic,
 		GroupID:        c.GroupID,
-		CommitInterval: time.Duration(c.CommitInterval),
+		CommitInterval: c.CommitInterval,
 		SessionTimeout: c.SessionTimeout,
 		StartOffset:    int64(c.StartOffset),
 	})
 	return &Consumer{
+		config: c,
 		reader: reader,
 		proccessor: &Proccess{
+			config:  c,
 			reader:  reader,
 			handler: c.Handler,
 			encoder: c.Encoder,
@@ -96,7 +100,7 @@ func (c *Consumer) Run(ctx context.Context) error {
 
 func (c *Consumer) Close() error {
 	if err := c.reader.Close(); err != nil {
-		return fmt.Errorf("%w: %v", ErrClosing, err)
+		return fmt.Errorf("%w: %v", ErrClosingConsumer, err)
 	}
 	return nil
 }
@@ -106,8 +110,9 @@ type Proccessor interface {
 }
 
 type Proccess struct {
-	reader Reader
+	config Config
 
+	reader  Reader
 	handler Handler
 
 	encoder Encoder

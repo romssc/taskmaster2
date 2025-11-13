@@ -3,7 +3,7 @@ kafka:
     - "0.0.0.0:9092"
   topic: "tasks"
   group_id: "tasks-group"
-  commit_interval: 0
+  commit_interval: 0s
   start_offset: -2
 router:
   update:
