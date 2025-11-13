@@ -1,0 +1,18 @@
+server:
+  host: "0.0.0.0"
+  port: "8081"
+  read_timeout: 20s
+  write_timeout: 20s
+  shutdown_timeout: 20s
+router:
+  create:
+    fail_timeout: 10s
+  list:
+  list_id:
+kafka:
+  address: 
+    - "kafka:9092"
+  topic: "tasks"
+  batch_timeout: 50ms
+  required_acks: -1
+  allow_topic_creation: true

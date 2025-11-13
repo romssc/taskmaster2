@@ -47,14 +47,14 @@ func run() error {
 	defer notifyCancel()
 	e, egCtx := errgroup.WithContext(notifyCtx)
 	e.Go(func() error {
-		if runErr := broker.Run(egCtx); runErr != nil {
+		if runErr := broker.Run(egCtx); runErr != nil && !errors.Is(err, kafkaa.ErrConsumerClosed) {
 			return runErr
 		}
 		return nil
 	})
 	e.Go(func() error {
 		<-egCtx.Done()
-		if closeErr := broker.Close(); closeErr != nil {
+		if closeErr := broker.Close(); closeErr != nil && !errors.Is(err, kafkaa.ErrConsumerClosed) {
 			return closeErr
 		}
 		return nil
