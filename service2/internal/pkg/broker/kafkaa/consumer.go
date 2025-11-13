@@ -27,7 +27,7 @@ type Config struct {
 	Brokers        []string      `yaml:"brokers"`
 	Topic          string        `yaml:"topic"`
 	GroupID        string        `yaml:"group_id"`
-	CommitInterval time.Duration `yaml:"commit_interval"`
+	CommitInterval int           `yaml:"commit_interval"`
 	SessionTimeout time.Duration `yaml:"session_timeout"`
 	StartOffset    int           `yaml:"start_offset"`
 
@@ -61,7 +61,7 @@ func New(c Config) *Consumer {
 		Brokers:        c.Brokers,
 		Topic:          c.Topic,
 		GroupID:        c.GroupID,
-		CommitInterval: c.CommitInterval,
+		CommitInterval: time.Duration(c.CommitInterval),
 		SessionTimeout: c.SessionTimeout,
 		StartOffset:    int64(c.StartOffset),
 	})
@@ -82,7 +82,7 @@ func (c *Consumer) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			return fmt.Errorf("%w: %v", ErrConsumerClosed, ctx.Err())
 		default:
-			if err := c.proccessor.Process(ctx); err != nil {
+			if err := c.proccessor.Process(ctx); err != nil && !errors.Is(err, ErrOperationCanceled) {
 				switch {
 				case errors.Is(err, ErrConsumerClosed):
 					return fmt.Errorf("%w: %v", ErrConsumerClosed, ctx.Err())
