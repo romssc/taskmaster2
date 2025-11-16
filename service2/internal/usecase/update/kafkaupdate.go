@@ -20,7 +20,7 @@ type Usecase struct {
 }
 
 func (u *Usecase) EventHandler(ctx context.Context, event domain.Event) error {
-	if err := u.Update(ctx, event); err != nil && !errors.Is(err, ErrOperationCanceled) {
+	if err := u.Update(ctx, event); err != nil {
 		return err
 	}
 	return nil
@@ -30,13 +30,8 @@ func (u *Usecase) Update(ctx context.Context, event domain.Event) error {
 	select {
 	case <-ctx.Done():
 		return fmt.Errorf("%w: %v", ErrOperationCanceled, ctx.Err())
-	default:
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("%w: %v", ErrOperationCanceled, ctx.Err())
-		case <-time.After(time.Second * 10):
-		}
+	case <-time.After(time.Second * 10):
 		log.Println(event)
-		return nil
 	}
+	return nil
 }

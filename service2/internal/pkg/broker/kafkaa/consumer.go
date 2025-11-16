@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/segmentio/kafka-go"
+	"golang.org/x/sync/errgroup"
 )
 
 var (
@@ -31,6 +32,8 @@ type Config struct {
 	SessionTimeout time.Duration `yaml:"session_timeout"`
 	StartOffset    int           `yaml:"start_offset"`
 
+	WorkerCount int `yaml:"worker_count"`
+
 	Handler Handler
 
 	Encoder Encoder
@@ -51,74 +54,6 @@ type Reader interface {
 	Stats() kafka.ReaderStats
 }
 
-type Consumer struct {
-	config Config
-
-	reader     Reader
-	proccessor Proccessor
-}
-
-func New(c Config) *Consumer {
-	reader := kafka.NewReader(kafka.ReaderConfig{
-		Brokers:        c.Brokers,
-		Topic:          c.Topic,
-		GroupID:        c.GroupID,
-		CommitInterval: c.CommitInterval,
-		SessionTimeout: c.SessionTimeout,
-		StartOffset:    int64(c.StartOffset),
-	})
-	return &Consumer{
-		config: c,
-		reader: reader,
-		proccessor: &Proccess{
-			config:  c,
-			reader:  reader,
-			handler: c.Handler,
-			encoder: c.Encoder,
-			decoder: c.Decoder,
-		},
-	}
-}
-
-func (c *Consumer) Run(ctx context.Context) error {
-	for {
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("%w: %v", ErrConsumerClosed, ctx.Err())
-		default:
-			if err := c.proccessor.Process(ctx); err != nil && !errors.Is(err, ErrOperationCanceled) {
-				switch {
-				case errors.Is(err, ErrConsumerClosed):
-					return fmt.Errorf("%w: %v", ErrConsumerClosed, ctx.Err())
-				default:
-					log.Println(err)
-				}
-			}
-		}
-	}
-}
-
-func (c *Consumer) Close() error {
-	if err := c.reader.Close(); err != nil {
-		return fmt.Errorf("%w: %v", ErrClosingConsumer, err)
-	}
-	return nil
-}
-
-type Proccessor interface {
-	Process(ctx context.Context) error
-}
-
-type Proccess struct {
-	config Config
-
-	reader  Reader
-	handler Handler
-
-	encoder Encoder
-	decoder Decoder
-}
-
 type Handler interface {
 	Pick(ctx context.Context, action domain.Action, event domain.Event) error
 }
@@ -131,23 +66,76 @@ type Decoder interface {
 	Unmarshal(data []byte, v any) error
 }
 
-func (p *Proccess) Process(ctx context.Context) error {
-	msg, fetchErr := p.reader.FetchMessage(ctx)
-	if fetchErr != nil {
-		switch {
-		case errors.Is(fetchErr, context.Canceled):
-			return fmt.Errorf("%w: %v", ErrOperationCanceled, ctx.Err())
-		case errors.Is(fetchErr, kafka.ErrGroupClosed):
-			return fmt.Errorf("%w: %v", ErrConsumerClosed, fetchErr)
-		default:
-			return fmt.Errorf("%w: %v", ErrFetchingMessages, fetchErr)
-		}
+type Consumer struct {
+	config Config
+
+	reader  Reader
+	handler Handler
+
+	encoder Encoder
+	decoder Decoder
+}
+
+func New(c Config) *Consumer {
+	reader := kafka.NewReader(kafka.ReaderConfig{
+		Brokers:        c.Brokers,
+		Topic:          c.Topic,
+		GroupID:        c.GroupID,
+		CommitInterval: c.CommitInterval,
+		SessionTimeout: c.SessionTimeout,
+		StartOffset:    int64(c.StartOffset),
+	})
+	return &Consumer{
+		config:  c,
+		reader:  reader,
+		handler: c.Handler,
+		encoder: c.Encoder,
+		decoder: c.Decoder,
 	}
+}
+
+func (c *Consumer) Run(ctx context.Context) error {
+	jobs := make(chan kafka.Message, c.config.WorkerCount*2)
+	eg, egCtx := errgroup.WithContext(ctx)
+	for w := 0; w < c.config.WorkerCount; w++ {
+		eg.Go(func() error {
+			for message := range jobs {
+				if prErr := c.proccess(egCtx, message); prErr != nil && !errors.Is(prErr, ErrOperationCanceled) {
+					log.Println(prErr)
+				}
+			}
+			return nil
+		})
+	}
+	eg.Go(func() error {
+		defer close(jobs)
+		for {
+			select {
+			case <-egCtx.Done():
+				return nil
+			default:
+				message, err := c.fetch(egCtx)
+				if err != nil && !errors.Is(err, ErrOperationCanceled) {
+					log.Println(err)
+					continue
+				}
+				select {
+				case jobs <- message:
+				case <-egCtx.Done():
+					return nil
+				}
+			}
+		}
+	})
+	return eg.Wait()
+}
+
+func (c *Consumer) proccess(ctx context.Context, message kafka.Message) error {
 	var event domain.Event
-	if umErr := p.decoder.Unmarshal(msg.Value, &event); umErr != nil {
+	if umErr := c.decoder.Unmarshal(message.Value, &event); umErr != nil {
 		return fmt.Errorf("%w: %v", ErrUnmarshalingMessage, umErr)
 	}
-	pickErr := p.handler.Pick(ctx, event.Action, event)
+	pickErr := c.handler.Pick(ctx, event.Action, event)
 	if pickErr != nil {
 		switch {
 		case errors.Is(pickErr, kafkarouter.ErrOperationCanceled):
@@ -156,14 +144,41 @@ func (p *Proccess) Process(ctx context.Context) error {
 			return fmt.Errorf("%w: %v", ErrProcessingMessage, pickErr)
 		}
 	}
-	if commitErr := p.reader.CommitMessages(ctx, msg); commitErr != nil {
+	return nil
+}
+
+func (c *Consumer) fetch(ctx context.Context) (kafka.Message, error) {
+	message, fetchErr := c.reader.FetchMessage(ctx)
+	if fetchErr != nil {
+		switch {
+		case errors.Is(fetchErr, context.Canceled):
+			return kafka.Message{}, fmt.Errorf("%w: %v", ErrOperationCanceled, ctx.Err())
+		case errors.Is(fetchErr, kafka.ErrGroupClosed):
+			return kafka.Message{}, fmt.Errorf("%w: %v", ErrConsumerClosed, fetchErr)
+		default:
+			return kafka.Message{}, fmt.Errorf("%w: %v", ErrFetchingMessages, fetchErr)
+		}
+	}
+	if commitErr := c.reader.CommitMessages(ctx, message); commitErr != nil {
 		switch {
 		case errors.Is(commitErr, context.Canceled):
-			return fmt.Errorf("%w: %v", ErrOperationCanceled, ctx.Err())
+			return kafka.Message{}, fmt.Errorf("%w: %v", ErrOperationCanceled, ctx.Err())
 		case errors.Is(commitErr, kafka.ErrGroupClosed):
-			return fmt.Errorf("%w: %v", ErrConsumerClosed, commitErr)
+			return kafka.Message{}, fmt.Errorf("%w: %v", ErrConsumerClosed, commitErr)
 		default:
-			return fmt.Errorf("%w: %v", ErrCommitting, commitErr)
+			return kafka.Message{}, fmt.Errorf("%w: %v", ErrCommitting, commitErr)
+		}
+	}
+	return message, nil
+}
+
+func (c *Consumer) Close() error {
+	if err := c.reader.Close(); err != nil {
+		switch {
+		case errors.Is(err, kafka.ErrGroupClosed):
+			return fmt.Errorf("%w: %v", ErrConsumerClosed, err)
+		default:
+			return fmt.Errorf("%w: %v", ErrClosingConsumer, err)
 		}
 	}
 	return nil
