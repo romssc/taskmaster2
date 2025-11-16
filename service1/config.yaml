@@ -10,8 +10,6 @@ router:
   list:
   list_id:
 kafka:
-  address: 
-    - "0.0.0.0:9092"
   topic: "tasks"
   batch_timeout: 50ms
   required_acks: -1

@@ -26,7 +26,7 @@ var (
 )
 
 type Config struct {
-	Brokers        []string      `yaml:"brokers"`
+	Brokers        []string
 	Topic          string        `yaml:"topic"`
 	GroupID        string        `yaml:"group_id"`
 	CommitInterval time.Duration `yaml:"commit_interval"`

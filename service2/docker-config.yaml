@@ -1,9 +1,0 @@
-kafka:
-  brokers:
-    - "kafka:9092"
-  topic: "tasks"
-  group_id: "tasks-group"
-  commit_interval: 0s
-  start_offset: -2
-router:
-  update:

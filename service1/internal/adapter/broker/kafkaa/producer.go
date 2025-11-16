@@ -21,7 +21,7 @@ var (
 )
 
 type Config struct {
-	Address            []string      `yaml:"address"`
+	Address            []string
 	Topic              string        `yaml:"topic"`
 	BatchTimeout       time.Duration `yaml:"batch_timeout"`
 	RequiredAcks       int           `yaml:"required_acks"`

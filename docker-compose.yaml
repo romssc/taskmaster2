@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   zookeeper:
     container_name: zookeeper
@@ -47,13 +45,13 @@ services:
     container_name: service1
     build:
       context: .
-      dockerfile: dockerfile-service1
+      dockerfile: service1/Dockerfile
     depends_on:
       - kafka
     ports:
       - "8081:8081"
     environment:
-      KAFKA_ADDRESS: kafka:9092
+      KAFKA_ADDR: kafka:9092
       CONFIG_PATH: service1/docker-config.yaml
     restart: unless-stopped
 
@@ -61,10 +59,10 @@ services:
     container_name: service2
     build:
       context: .
-      dockerfile: dockerfile-service2
+      dockerfile: service2/Dockerfile
     depends_on:
       - kafka
     environment:
-      KAFKA_ADDRESS: kafka:9092
+      KAFKA_ADDR: kafka:9092
       CONFIG_PATH: service2/docker-config.yaml
     restart: unless-stopped

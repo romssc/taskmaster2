@@ -17,6 +17,10 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+// ENVIRONMENT VARIABLES:
+// - CONFIG_PATH - SPECIFIES CONFIG .YAML FILE TO USE : DEFAULTS TO "service1/config.yaml"
+// - KAFKA_ADDR - SPECIFIES KAFKA ADDRESS (EG. "0.0.0.0:9092") : DEFAULTS TO "[]string{"0.0.0.0:9092"}"
+
 func main() {
 	if err := run(); err != nil {
 		log.Fatalf("critical: %v", err)
@@ -24,12 +28,13 @@ func main() {
 }
 
 func run() error {
-	configPath := loadEnvs()
+	configPath, brokers := loadEnvs()
 
 	config, err := config.New(configPath)
 	if err != nil {
 		return err
 	}
+	config.Kafka.Brokers = brokers
 
 	json := standartjson.New()
 
@@ -67,10 +72,16 @@ func run() error {
 	return nil
 }
 
-func loadEnvs() string {
+func loadEnvs() (string, []string) {
 	configPath := os.Getenv("CONFIG_PATH")
 	if configPath == "" {
 		configPath = "service2/config.yaml"
 	}
-	return configPath
+	brokers := make([]string, 0, 1)
+	kafkaAddr := os.Getenv("KAFKA_ADDR")
+	if kafkaAddr == "" {
+		kafkaAddr = "0.0.0.0:9092"
+	}
+	brokers = append(brokers, kafkaAddr)
+	return configPath, brokers
 }
