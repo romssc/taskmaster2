@@ -2,8 +2,9 @@ package update
 
 import (
 	"context"
-	"taskmaster2/service2/internal/domain"
 	"testing"
+
+	"service2/internal/domain"
 
 	"github.com/stretchr/testify/assert"
 )

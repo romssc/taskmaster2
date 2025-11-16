@@ -5,8 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"taskmaster2/service2/internal/domain"
 	"time"
+
+	"service2/internal/domain"
 )
 
 var (

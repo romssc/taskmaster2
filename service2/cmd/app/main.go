@@ -7,11 +7,12 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"taskmaster2/service2/config"
-	"taskmaster2/service2/internal/controller/kafkarouter"
-	"taskmaster2/service2/internal/pkg/broker/kafkaa"
-	"taskmaster2/service2/internal/pkg/json/standartjson"
-	"taskmaster2/service2/internal/usecase/update"
+
+	"service2/config"
+	"service2/internal/controller/kafkarouter"
+	"service2/internal/pkg/broker/kafkaa"
+	"service2/internal/pkg/json/standartjson"
+	"service2/internal/usecase/update"
 
 	"golang.org/x/sync/errgroup"
 )

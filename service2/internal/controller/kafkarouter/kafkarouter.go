@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"taskmaster2/service2/internal/domain"
-	"taskmaster2/service2/internal/usecase/update"
+
+	"service2/internal/domain"
+	"service2/internal/usecase/update"
 )
 
 var (

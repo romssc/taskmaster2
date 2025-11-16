@@ -3,8 +3,9 @@ package config
 import (
 	"errors"
 	"fmt"
-	"taskmaster2/service2/internal/pkg/broker/kafkaa"
-	"taskmaster2/service2/internal/usecase/update"
+
+	"service2/internal/pkg/broker/kafkaa"
+	"service2/internal/usecase/update"
 
 	"github.com/ilyakaznacheev/cleanenv"
 )

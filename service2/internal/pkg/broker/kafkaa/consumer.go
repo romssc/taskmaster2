@@ -5,9 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"taskmaster2/service2/internal/controller/kafkarouter"
-	"taskmaster2/service2/internal/domain"
 	"time"
+
+	"service2/internal/controller/kafkarouter"
+	"service2/internal/domain"
 
 	"github.com/segmentio/kafka-go"
 	"golang.org/x/sync/errgroup"
