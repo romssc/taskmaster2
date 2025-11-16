@@ -2,9 +2,10 @@ package listid
 
 import (
 	"context"
-	"taskmaster2/service1/internal/adapter/storage/inmemory"
-	"taskmaster2/service1/internal/domain"
 	"testing"
+
+	"service1/internal/adapter/storage/inmemory"
+	"service1/internal/domain"
 
 	"github.com/stretchr/testify/assert"
 )

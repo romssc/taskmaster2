@@ -3,11 +3,12 @@ package create
 import (
 	"context"
 	"errors"
-	"taskmaster2/service1/internal/adapter/broker/kafkaa"
-	"taskmaster2/service1/internal/adapter/storage/inmemory"
-	"taskmaster2/service1/internal/domain"
-	"taskmaster2/service1/internal/pkg/id/uuidgen"
 	"testing"
+
+	"service1/internal/adapter/broker/kafkaa"
+	"service1/internal/adapter/storage/inmemory"
+	"service1/internal/domain"
+	"service1/internal/pkg/id/uuidgen"
 
 	"github.com/stretchr/testify/assert"
 )

@@ -3,12 +3,12 @@ package config
 import (
 	"errors"
 	"fmt"
-	"taskmaster2/service1/internal/adapter/broker/kafkaa"
-	"taskmaster2/service1/internal/usecase/create"
-	"taskmaster2/service1/internal/usecase/list"
-	"taskmaster2/service1/internal/usecase/listid"
 
-	"taskmaster2/service1/internal/pkg/server/httpserver"
+	"service1/internal/adapter/broker/kafkaa"
+	"service1/internal/pkg/server/httpserver"
+	"service1/internal/usecase/create"
+	"service1/internal/usecase/list"
+	"service1/internal/usecase/listid"
 
 	"github.com/ilyakaznacheev/cleanenv"
 )

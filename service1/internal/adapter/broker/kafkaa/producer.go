@@ -5,8 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"taskmaster2/service1/internal/domain"
 	"time"
+
+	"service1/internal/domain"
 
 	"github.com/segmentio/kafka-go"
 )

@@ -6,10 +6,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"taskmaster2/service1/internal/adapter/broker/kafkaa"
-	"taskmaster2/service1/internal/adapter/storage/inmemory"
-	"taskmaster2/service1/internal/domain"
 	"time"
+
+	"service1/internal/adapter/broker/kafkaa"
+	"service1/internal/adapter/storage/inmemory"
+	"service1/internal/domain"
 )
 
 var (

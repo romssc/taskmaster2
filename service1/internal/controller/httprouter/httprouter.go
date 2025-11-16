@@ -2,9 +2,10 @@ package httprouter
 
 import (
 	"net/http"
-	"taskmaster2/service1/internal/usecase/create"
-	"taskmaster2/service1/internal/usecase/list"
-	"taskmaster2/service1/internal/usecase/listid"
+
+	"service1/internal/usecase/create"
+	"service1/internal/usecase/list"
+	"service1/internal/usecase/listid"
 )
 
 type Config struct {

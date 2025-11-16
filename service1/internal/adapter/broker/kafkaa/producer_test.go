@@ -3,8 +3,9 @@ package kafkaa
 import (
 	"context"
 	"errors"
-	"taskmaster2/service1/internal/domain"
 	"testing"
+
+	"service1/internal/domain"
 
 	"github.com/segmentio/kafka-go"
 	"github.com/stretchr/testify/assert"

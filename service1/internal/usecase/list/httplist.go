@@ -5,8 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"taskmaster2/service1/internal/adapter/storage/inmemory"
-	"taskmaster2/service1/internal/domain"
+
+	"service1/internal/adapter/storage/inmemory"
+	"service1/internal/domain"
 )
 
 var (
