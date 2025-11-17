@@ -101,8 +101,12 @@ func (c *Consumer) Run(ctx context.Context) error {
 	for w := 0; w < c.config.WorkerCount; w++ {
 		eg.Go(func() error {
 			for message := range jobs {
-				if prErr := c.proccess(egCtx, message); prErr != nil && !errors.Is(prErr, ErrOperationCanceled) {
+				if prErr := c.proccess(egCtx, message); prErr != nil {
 					log.Println(prErr)
+					if errors.Is(prErr, ErrOperationCanceled) {
+						return nil
+					}
+					continue
 				}
 			}
 			return nil
@@ -111,24 +115,64 @@ func (c *Consumer) Run(ctx context.Context) error {
 	eg.Go(func() error {
 		defer close(jobs)
 		for {
-			select {
-			case <-egCtx.Done():
-				return nil
-			default:
-				message, err := c.fetch(egCtx)
-				if err != nil && !errors.Is(err, ErrOperationCanceled) {
-					log.Println(err)
-					continue
-				}
-				select {
-				case jobs <- message:
-				case <-egCtx.Done():
+			message, fetchErr := c.fetch(egCtx)
+			if fetchErr != nil {
+				if errors.Is(fetchErr, ErrOperationCanceled) {
 					return nil
 				}
+				log.Println(fetchErr)
+				continue
+			}
+			select {
+			case jobs <- message:
+				if commitErr := c.commit(egCtx, message); commitErr != nil {
+					if errors.Is(commitErr, ErrOperationCanceled) {
+						return nil
+					}
+					log.Println(commitErr)
+					continue
+				}
+			case <-egCtx.Done():
+				return nil
 			}
 		}
 	})
-	return eg.Wait()
+	if err := eg.Wait(); err != nil {
+		if errors.Is(err, context.Canceled) {
+			return nil
+		}
+		return err
+	}
+	return nil
+}
+
+func (c *Consumer) fetch(ctx context.Context) (kafka.Message, error) {
+	message, fetchErr := c.reader.FetchMessage(ctx)
+	if fetchErr != nil {
+		switch {
+		case errors.Is(fetchErr, context.Canceled):
+			return kafka.Message{}, fmt.Errorf("%w: %v", ErrOperationCanceled, ctx.Err())
+		case errors.Is(fetchErr, kafka.ErrGroupClosed):
+			return kafka.Message{}, fmt.Errorf("%w: %v", ErrConsumerClosed, fetchErr)
+		default:
+			return kafka.Message{}, fmt.Errorf("%w: %v", ErrFetchingMessages, fetchErr)
+		}
+	}
+	return message, nil
+}
+
+func (c *Consumer) commit(ctx context.Context, message kafka.Message) error {
+	if commitErr := c.reader.CommitMessages(ctx, message); commitErr != nil {
+		switch {
+		case errors.Is(commitErr, context.Canceled):
+			return fmt.Errorf("%w: %v", ErrOperationCanceled, ctx.Err())
+		case errors.Is(commitErr, kafka.ErrGroupClosed):
+			return fmt.Errorf("%w: %v", ErrConsumerClosed, commitErr)
+		default:
+			return fmt.Errorf("%w: %v", ErrCommitting, commitErr)
+		}
+	}
+	return nil
 }
 
 func (c *Consumer) proccess(ctx context.Context, message kafka.Message) error {
@@ -146,31 +190,6 @@ func (c *Consumer) proccess(ctx context.Context, message kafka.Message) error {
 		}
 	}
 	return nil
-}
-
-func (c *Consumer) fetch(ctx context.Context) (kafka.Message, error) {
-	message, fetchErr := c.reader.FetchMessage(ctx)
-	if fetchErr != nil {
-		switch {
-		case errors.Is(fetchErr, context.Canceled):
-			return kafka.Message{}, fmt.Errorf("%w: %v", ErrOperationCanceled, ctx.Err())
-		case errors.Is(fetchErr, kafka.ErrGroupClosed):
-			return kafka.Message{}, fmt.Errorf("%w: %v", ErrConsumerClosed, fetchErr)
-		default:
-			return kafka.Message{}, fmt.Errorf("%w: %v", ErrFetchingMessages, fetchErr)
-		}
-	}
-	if commitErr := c.reader.CommitMessages(ctx, message); commitErr != nil {
-		switch {
-		case errors.Is(commitErr, context.Canceled):
-			return kafka.Message{}, fmt.Errorf("%w: %v", ErrOperationCanceled, ctx.Err())
-		case errors.Is(commitErr, kafka.ErrGroupClosed):
-			return kafka.Message{}, fmt.Errorf("%w: %v", ErrConsumerClosed, commitErr)
-		default:
-			return kafka.Message{}, fmt.Errorf("%w: %v", ErrCommitting, commitErr)
-		}
-	}
-	return message, nil
 }
 
 func (c *Consumer) Close() error {
