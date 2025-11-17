@@ -52,7 +52,7 @@ services:
       - "8081:8081"
     environment:
       KAFKA_ADDR: kafka:9092
-      CONFIG_PATH: service1/docker-config.yaml
+      CONFIG_PATH: service1/config.yaml
     restart: unless-stopped
 
   service2:
@@ -64,5 +64,5 @@ services:
       - kafka
     environment:
       KAFKA_ADDR: kafka:9092
-      CONFIG_PATH: service2/docker-config.yaml
+      CONFIG_PATH: service2/config.yaml
     restart: unless-stopped
