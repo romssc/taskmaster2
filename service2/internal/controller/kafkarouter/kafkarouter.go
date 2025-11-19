@@ -2,16 +2,11 @@ package kafkarouter
 
 import (
 	"context"
-	"errors"
-	"fmt"
 
 	"service2/internal/domain"
 	"service2/internal/usecase/update"
-)
 
-var (
-	ErrOperationCanceled = errors.New("kafkarouter: operation canceled")
-	ErrFailedToProccess  = errors.New("kafkarouter: failed to proccess")
+	"github.com/segmentio/kafka-go"
 )
 
 type Config struct {
@@ -19,37 +14,31 @@ type Config struct {
 }
 
 type Router struct {
+	Config *Config
+
 	Handlers *Handlers
 }
 
 type Handler interface {
-	EventHandler(ctx context.Context, event domain.Event) error
+	EventHandler(ctx context.Context, message kafka.Message)
 }
 
 type Handlers struct {
-	Update Handler
+	update Handler
 }
 
 func New(c *Config) *Router {
 	return &Router{
+		Config: c,
 		Handlers: &Handlers{
-			Update: c.Update,
+			update: c.Update,
 		},
 	}
 }
 
-func (r *Router) Pick(ctx context.Context, action domain.Action, event domain.Event) error {
-	switch action {
+func (r *Router) Route(ctx context.Context, message kafka.Message) {
+	switch domain.Action(string(message.Key)) {
 	case domain.ActionUpdate:
-		err := r.Handlers.Update.EventHandler(ctx, event)
-		if err != nil {
-			switch {
-			case errors.Is(err, update.ErrOperationCanceled):
-				return fmt.Errorf("%w: %v", ErrOperationCanceled, err)
-			default:
-				return fmt.Errorf("%w: %v", ErrFailedToProccess, err)
-			}
-		}
+		r.Handlers.update.EventHandler(ctx, message)
 	}
-	return nil
 }

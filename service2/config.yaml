@@ -3,6 +3,9 @@ kafka:
   group_id: "tasks-group"
   commit_interval: 0s
   start_offset: -2
+  shutdown_timeout: 20s
+  retry_amount: 3
   worker_count: 50
+  jobs_multiplier: 2
 router:
   update:

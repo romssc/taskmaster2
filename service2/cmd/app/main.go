@@ -30,9 +30,9 @@ func main() {
 func run() error {
 	configPath, brokers := loadEnvs()
 
-	config, err := config.New(configPath)
-	if err != nil {
-		return err
+	config, cnErr := config.New(configPath)
+	if cnErr != nil {
+		return cnErr
 	}
 	config.Kafka.Brokers = brokers
 
@@ -40,33 +40,34 @@ func run() error {
 
 	router := kafkarouter.New(&kafkarouter.Config{
 		Update: &update.Usecase{
-			Config: config.Router.Update,
+			Config:  config.Router.Update,
+			Decoder: json,
 		},
 	})
 
 	config.Kafka.Handler = router
-	config.Kafka.Encoder = json
-	config.Kafka.Decoder = json
 	broker := kafkaa.New(config.Kafka)
 
-	notifyCtx, notifyCancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-	defer notifyCancel()
-	e, egCtx := errgroup.WithContext(notifyCtx)
-	e.Go(func() error {
-		if runErr := broker.Run(egCtx); runErr != nil && !errors.Is(err, kafkaa.ErrConsumerClosed) {
-			return runErr
+	snCtx, snCancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	defer snCancel()
+	ewith, ewithCtx := errgroup.WithContext(snCtx)
+	ewith.Go(func() error {
+		if brunErr := broker.Run(); brunErr != nil && !errors.Is(brunErr, kafkaa.ErrOperationCanceled) {
+			return brunErr
 		}
 		return nil
 	})
-	e.Go(func() error {
-		<-egCtx.Done()
-		if closeErr := broker.Close(); closeErr != nil && !errors.Is(err, kafkaa.ErrConsumerClosed) {
-			return closeErr
+	ewith.Go(func() error {
+		<-ewithCtx.Done()
+		bshutCtx, bshutCancel := context.WithTimeout(context.Background(), config.Kafka.ShutdownTimeout)
+		defer bshutCancel()
+		if bshutErr := broker.Shutdown(bshutCtx); bshutErr != nil {
+			log.Println(bshutErr)
 		}
 		return nil
 	})
-	if waitErr := e.Wait(); waitErr != nil && !errors.Is(waitErr, context.Canceled) {
-		return waitErr
+	if ewaitErr := ewith.Wait(); ewaitErr != nil {
+		return ewaitErr
 	}
 
 	return nil
@@ -75,7 +76,7 @@ func run() error {
 func loadEnvs() (string, []string) {
 	configPath := os.Getenv("CONFIG_PATH")
 	if configPath == "" {
-		configPath = "service2/config.yaml"
+		configPath = "config.yaml"
 	}
 	brokers := make([]string, 0, 1)
 	kafkaAddr := os.Getenv("KAFKA_ADDR")

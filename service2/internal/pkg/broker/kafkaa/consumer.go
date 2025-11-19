@@ -5,24 +5,20 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"sync"
 	"time"
 
-	"service2/internal/controller/kafkarouter"
-	"service2/internal/domain"
-
 	"github.com/segmentio/kafka-go"
-	"golang.org/x/sync/errgroup"
 )
 
 var (
-	ErrFetchingMessages    = errors.New("kafka: failed while fetching new messages")
-	ErrUnmarshalingMessage = errors.New("kafka: failed while unmarshaling message")
-	ErrConsumerClosed      = errors.New("kafka: failed due to consumer being closed")
-	ErrProcessingMessage   = errors.New("kafka: failed to process message")
-	ErrClosingConsumer     = errors.New("kafka: failed to close consumer")
-	ErrUnknownAction       = errors.New("kafka: failed to process message: unknown action")
-	ErrCommitting          = errors.New("kafka: failed to commit")
-	ErrOperationCanceled   = errors.New("kafka: operation canceled")
+	ErrOperationCanceled = errors.New("kafka: operation canceled")
+
+	ErrFetchingMessages      = errors.New("kafka: failed while trying to fetch new messages")
+	ErrCommitting            = errors.New("kafka: failed to commit offset")
+	ErrClosingConsumer       = errors.New("kafka: failed to close consumer")
+	ErrConsumerAlreadyClosed = errors.New("kafka: consumer group is closed already")
+	ErrTooManyRetries        = errors.New("kafka: too many retries")
 )
 
 type Config struct {
@@ -33,12 +29,12 @@ type Config struct {
 	SessionTimeout time.Duration `yaml:"session_timeout"`
 	StartOffset    int           `yaml:"start_offset"`
 
-	WorkerCount int `yaml:"worker_count"`
+	ShutdownTimeout time.Duration `yaml:"shutdown_timeout"`
+	RetryAmount     int           `yaml:"retry_amount"`
+	WorkerCount     int           `yaml:"worker_count"`
+	JobsMultiplier  int           `yaml:"jobs_multiplier"`
 
 	Handler Handler
-
-	Encoder Encoder
-	Decoder Decoder
 }
 
 type Reader interface {
@@ -56,15 +52,7 @@ type Reader interface {
 }
 
 type Handler interface {
-	Pick(ctx context.Context, action domain.Action, event domain.Event) error
-}
-
-type Encoder interface {
-	Marshal(data any) ([]byte, error)
-}
-
-type Decoder interface {
-	Unmarshal(data []byte, v any) error
+	Route(ctx context.Context, message kafka.Message)
 }
 
 type Consumer struct {
@@ -73,11 +61,22 @@ type Consumer struct {
 	reader  Reader
 	handler Handler
 
-	encoder Encoder
-	decoder Decoder
+	workerCtx     context.Context
+	workerCancel  context.CancelFunc
+	consumeCtx    context.Context
+	consumeCancel context.CancelFunc
+	workersDone   chan struct{}
 }
 
 func New(c Config) *Consumer {
+	if c.WorkerCount < 1 {
+		c.WorkerCount = 1
+	}
+	if c.JobsMultiplier < 1 {
+		c.JobsMultiplier = 1
+	}
+	workerCtx, workerCancel := context.WithCancel(context.Background())
+	consumeCtx, consumeCancel := context.WithCancel(context.Background())
 	reader := kafka.NewReader(kafka.ReaderConfig{
 		Brokers:        c.Brokers,
 		Topic:          c.Topic,
@@ -87,116 +86,111 @@ func New(c Config) *Consumer {
 		StartOffset:    int64(c.StartOffset),
 	})
 	return &Consumer{
-		config:  c,
-		reader:  reader,
-		handler: c.Handler,
-		encoder: c.Encoder,
-		decoder: c.Decoder,
+		config:        c,
+		reader:        reader,
+		handler:       c.Handler,
+		workerCtx:     workerCtx,
+		workerCancel:  workerCancel,
+		consumeCtx:    consumeCtx,
+		consumeCancel: consumeCancel,
+		workersDone:   make(chan struct{}),
 	}
 }
 
-func (c *Consumer) Run(ctx context.Context) error {
-	jobs := make(chan kafka.Message, c.config.WorkerCount*2)
-	eg, egCtx := errgroup.WithContext(ctx)
+func (c *Consumer) Run() error {
+	jobs := make(chan kafka.Message, c.config.WorkerCount*c.config.JobsMultiplier)
+	var wg sync.WaitGroup
+
+	defer func() {
+		close(jobs)
+		wg.Wait()
+		close(c.workersDone)
+	}()
+
 	for w := 0; w < c.config.WorkerCount; w++ {
-		eg.Go(func() error {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
 			for message := range jobs {
-				if prErr := c.proccess(egCtx, message); prErr != nil {
-					log.Println(prErr)
-					if errors.Is(prErr, ErrOperationCanceled) {
-						return nil
-					}
-					continue
-				}
+				c.handler.Route(c.workerCtx, message)
 			}
-			return nil
-		})
+		}()
 	}
-	eg.Go(func() error {
-		defer close(jobs)
-		for {
-			message, fetchErr := c.fetch(egCtx)
-			if fetchErr != nil {
-				if errors.Is(fetchErr, ErrOperationCanceled) {
-					return nil
+
+	consErr := func() error {
+		backoff := time.Second * 0
+		for a := 0; a <= c.config.RetryAmount; a++ {
+			if consErr := c.consume(c.consumeCtx, jobs, backoff); consErr != nil {
+				if errors.Is(consErr, ErrOperationCanceled) {
+					return consErr
 				}
-				log.Println(fetchErr)
+				if a+1 == c.config.RetryAmount {
+					return fmt.Errorf("%w: %v", ErrTooManyRetries, consErr)
+				}
+				switch backoff {
+				case 0:
+					backoff = time.Second * 2
+				default:
+					backoff *= 2
+				}
+				log.Println(consErr)
 				continue
 			}
-			select {
-			case jobs <- message:
-				if commitErr := c.commit(egCtx, message); commitErr != nil {
-					if errors.Is(commitErr, ErrOperationCanceled) {
-						return nil
-					}
-					log.Println(commitErr)
-					continue
-				}
-			case <-egCtx.Done():
-				return nil
+			a = 0
+			backoff = 0
+		}
+		return nil
+	}()
+	if consErr != nil {
+		return consErr
+	}
+
+	return nil
+}
+
+func (c *Consumer) consume(ctx context.Context, jobs chan kafka.Message, backoff time.Duration) error {
+	select {
+	case <-c.consumeCtx.Done():
+		return fmt.Errorf("%w: %v", ErrOperationCanceled, ctx.Err())
+	case <-time.After(backoff):
+		message, fetchErr := c.reader.FetchMessage(ctx)
+		if fetchErr != nil {
+			switch {
+			case errors.Is(fetchErr, context.Canceled):
+				return fmt.Errorf("%w: %v", ErrOperationCanceled, fetchErr)
+			default:
+				return fmt.Errorf("%w: %v", ErrFetchingMessages, fetchErr)
 			}
 		}
-	})
-	if err := eg.Wait(); err != nil {
-		if errors.Is(err, context.Canceled) {
-			return nil
-		}
-		return err
-	}
-	return nil
-}
-
-func (c *Consumer) fetch(ctx context.Context) (kafka.Message, error) {
-	message, fetchErr := c.reader.FetchMessage(ctx)
-	if fetchErr != nil {
-		switch {
-		case errors.Is(fetchErr, context.Canceled):
-			return kafka.Message{}, fmt.Errorf("%w: %v", ErrOperationCanceled, ctx.Err())
-		case errors.Is(fetchErr, kafka.ErrGroupClosed):
-			return kafka.Message{}, fmt.Errorf("%w: %v", ErrConsumerClosed, fetchErr)
-		default:
-			return kafka.Message{}, fmt.Errorf("%w: %v", ErrFetchingMessages, fetchErr)
-		}
-	}
-	return message, nil
-}
-
-func (c *Consumer) commit(ctx context.Context, message kafka.Message) error {
-	if commitErr := c.reader.CommitMessages(ctx, message); commitErr != nil {
-		switch {
-		case errors.Is(commitErr, context.Canceled):
+		select {
+		case <-ctx.Done():
 			return fmt.Errorf("%w: %v", ErrOperationCanceled, ctx.Err())
-		case errors.Is(commitErr, kafka.ErrGroupClosed):
-			return fmt.Errorf("%w: %v", ErrConsumerClosed, commitErr)
-		default:
-			return fmt.Errorf("%w: %v", ErrCommitting, commitErr)
+		case jobs <- message:
+			if commitErr := c.reader.CommitMessages(ctx, message); commitErr != nil {
+				switch {
+				case errors.Is(commitErr, context.Canceled):
+					return fmt.Errorf("%w: %v", ErrOperationCanceled, commitErr)
+				default:
+					return fmt.Errorf("%w: %v", ErrCommitting, commitErr)
+				}
+			}
 		}
+		return nil
 	}
-	return nil
 }
 
-func (c *Consumer) proccess(ctx context.Context, message kafka.Message) error {
-	var event domain.Event
-	if umErr := c.decoder.Unmarshal(message.Value, &event); umErr != nil {
-		return fmt.Errorf("%w: %v", ErrUnmarshalingMessage, umErr)
+func (c *Consumer) Shutdown(ctx context.Context) error {
+	c.consumeCancel()
+	select {
+	case <-ctx.Done():
+		c.workerCancel()
+	case <-c.workersDone:
+		// WORKERS DRAINED
 	}
-	pickErr := c.handler.Pick(ctx, event.Action, event)
-	if pickErr != nil {
-		switch {
-		case errors.Is(pickErr, kafkarouter.ErrOperationCanceled):
-			return fmt.Errorf("%w: %v", ErrOperationCanceled, ctx.Err())
-		default:
-			return fmt.Errorf("%w: %v", ErrProcessingMessage, pickErr)
-		}
-	}
-	return nil
-}
-
-func (c *Consumer) Close() error {
 	if err := c.reader.Close(); err != nil {
 		switch {
 		case errors.Is(err, kafka.ErrGroupClosed):
-			return fmt.Errorf("%w: %v", ErrConsumerClosed, err)
+			return fmt.Errorf("%w: %v", ErrConsumerAlreadyClosed, err)
 		default:
 			return fmt.Errorf("%w: %v", ErrClosingConsumer, err)
 		}
