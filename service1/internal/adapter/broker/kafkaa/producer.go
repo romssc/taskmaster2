@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strconv"
 	"time"
 
 	"service1/internal/domain"
@@ -13,11 +12,12 @@ import (
 )
 
 var (
+	ErrOperationCanceled = errors.New("kafka: operation canceled, no events written")
+
 	ErrClosingConnection = errors.New("kafka: failed to close connection")
 	ErrMarshalingEvent   = errors.New("kafka: failed to prepare event")
 	ErrProducingEvent    = errors.New("kafka: failed to produce event")
 	ErrClosed            = errors.New("kafka: failed due to closed broker")
-	ErrOperationCanceled = errors.New("kafka: operation canceled, no events written")
 )
 
 type Config struct {
@@ -68,22 +68,22 @@ func (p *Producer) Close() error {
 }
 
 func (p *Producer) PublishEvent(ctx context.Context, event domain.Event) error {
-	e, mrErr := p.encoder.Marshal(event)
-	if mrErr != nil {
-		return fmt.Errorf("%w: %v", ErrMarshalingEvent, mrErr)
+	eventByte, marshalErr := p.encoder.Marshal(event)
+	if marshalErr != nil {
+		return fmt.Errorf("%w: %v", ErrMarshalingEvent, marshalErr)
 	}
-	if wmErr := p.producer.WriteMessages(ctx, kafka.Message{
-		Key:   []byte(strconv.Itoa(event.Record.ID)),
-		Value: e,
+	if writeErr := p.producer.WriteMessages(ctx, kafka.Message{
+		Key:   []byte(domain.ActionUpdate),
+		Value: eventByte,
 		Time:  time.Now(),
-	}); wmErr != nil {
+	}); writeErr != nil {
 		switch {
-		case errors.Is(wmErr, context.Canceled):
-			return fmt.Errorf("%w: %v", ErrOperationCanceled, wmErr)
-		case errors.Is(wmErr, kafka.ErrGroupClosed):
-			return fmt.Errorf("%w: %v", ErrClosed, wmErr)
+		case errors.Is(writeErr, context.Canceled):
+			return fmt.Errorf("%w: %v", ErrOperationCanceled, writeErr)
+		case errors.Is(writeErr, kafka.ErrGroupClosed):
+			return fmt.Errorf("%w: %v", ErrClosed, writeErr)
 		default:
-			return fmt.Errorf("%w: %v", ErrProducingEvent, wmErr)
+			return fmt.Errorf("%w: %v", ErrProducingEvent, writeErr)
 		}
 	}
 	return nil

@@ -52,16 +52,14 @@ func run() error {
 	defer snCancel()
 	ewith, ewithCtx := errgroup.WithContext(snCtx)
 	ewith.Go(func() error {
-		if brunErr := broker.Run(); brunErr != nil && !errors.Is(brunErr, kafkaa.ErrOperationCanceled) {
+		if brunErr := broker.Run(ewithCtx); brunErr != nil && !errors.Is(brunErr, kafkaa.ErrOperationCanceled) {
 			return brunErr
 		}
 		return nil
 	})
 	ewith.Go(func() error {
 		<-ewithCtx.Done()
-		bshutCtx, bshutCancel := context.WithTimeout(context.Background(), config.Kafka.ShutdownTimeout)
-		defer bshutCancel()
-		if bshutErr := broker.Shutdown(bshutCtx); bshutErr != nil {
+		if bshutErr := broker.Shutdown(); bshutErr != nil {
 			log.Println(bshutErr)
 		}
 		return nil

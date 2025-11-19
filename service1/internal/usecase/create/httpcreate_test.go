@@ -81,7 +81,6 @@ func Test_CreateTask_Unit(t *testing.T) {
 				Timer:     &mockTimer{},
 			},
 			result: domain.Event{
-				Action: domain.ActionUpdate,
 				Record: domain.Record{
 					Status: domain.StatusNew,
 				},
@@ -211,7 +210,6 @@ func Test_CreateTask_Unit(t *testing.T) {
 		t.Run(cs.name, func(t *testing.T) {
 			event, err := cs.usecase.CreateTask(cs.ctx, cs.task)
 			assert.ErrorIs(t, err, cs.err)
-			assert.Equal(t, cs.result.Action, event.Action)
 			assert.Equal(t, cs.result.Record.Status, event.Record.Status)
 		})
 	}
@@ -234,7 +232,6 @@ func Test_createEvent_Unit(t *testing.T) {
 				Timer:     &mockTimer{},
 			},
 			result: domain.Event{
-				Action: domain.ActionUpdate,
 				Record: domain.Record{
 					Status: domain.StatusNew,
 				},
@@ -257,7 +254,6 @@ func Test_createEvent_Unit(t *testing.T) {
 		t.Run(cs.name, func(t *testing.T) {
 			event, err := cs.usecase.createEvent(cs.task)
 			assert.ErrorIs(t, err, cs.err)
-			assert.Equal(t, cs.result.Action, event.Action)
 			assert.Equal(t, cs.result.Record.Status, event.Record.Status)
 		})
 	}

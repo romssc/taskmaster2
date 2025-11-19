@@ -171,7 +171,6 @@ func (u *Usecase) createEvent(task domain.Record) (domain.Event, error) {
 	}
 	time := u.Timer.TimeNow()
 	return domain.Event{
-		Action: domain.ActionUpdate,
 		Record: domain.Record{
 			ID:        id,
 			Title:     task.Title,

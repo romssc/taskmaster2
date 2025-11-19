@@ -37,9 +37,9 @@ func main() {
 func run() error {
 	configPath, brokers := loadEnvs()
 
-	config, err := config.New(configPath)
-	if err != nil {
-		return err
+	config, cnewErr := config.New(configPath)
+	if cnewErr != nil {
+		return cnewErr
 	}
 	config.Kafka.Address = brokers
 
@@ -77,30 +77,30 @@ func run() error {
 	config.Server.Handler = router
 	server := httpserver.New(config.Server)
 
-	notifyCtx, notifyCancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-	defer notifyCancel()
-	e, egCtx := errgroup.WithContext(notifyCtx)
-	e.Go(func() error {
-		if srErr := server.Run(); srErr != nil && !errors.Is(srErr, http.ErrServerClosed) {
-			return srErr
+	egCtx, egCancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	defer egCancel()
+	ewith, ewithCtx := errgroup.WithContext(egCtx)
+	ewith.Go(func() error {
+		if srunErr := server.Run(); srunErr != nil && !errors.Is(srunErr, http.ErrServerClosed) {
+			return srunErr
 		}
 		return nil
 	})
-	e.Go(func() error {
-		<-egCtx.Done()
-		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), config.Server.ShutdownTimeout)
-		defer shutdownCancel()
-		if ssErr := server.Shutdown(shutdownCtx); ssErr != nil {
-			log.Println(ssErr)
+	ewith.Go(func() error {
+		<-ewithCtx.Done()
+		sshutCtx, sshutCancel := context.WithTimeout(context.Background(), config.Server.ShutdownTimeout)
+		defer sshutCancel()
+		if sshutErr := server.Shutdown(sshutCtx); sshutErr != nil {
+			log.Println(sshutErr)
 		}
-		if bcErr := broker.Close(); bcErr != nil {
-			log.Println(bcErr)
+		if bcloseErr := broker.Close(); bcloseErr != nil {
+			log.Println(bcloseErr)
 		}
 		storage.Close()
 		return nil
 	})
-	if waitErr := e.Wait(); waitErr != nil && !errors.Is(waitErr, context.Canceled) {
-		return waitErr
+	if ewaitErr := ewith.Wait(); ewaitErr != nil && !errors.Is(ewaitErr, context.Canceled) {
+		return ewaitErr
 	}
 
 	return nil
@@ -109,7 +109,7 @@ func run() error {
 func loadEnvs() (string, []string) {
 	configPath := os.Getenv("CONFIG_PATH")
 	if configPath == "" {
-		configPath = "service1/config.yaml"
+		configPath = "config.yaml"
 	}
 	brokers := make([]string, 0, 1)
 	kafkaAddr := os.Getenv("KAFKA_ADDR")
