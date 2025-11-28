@@ -20,10 +20,10 @@ type Routes struct {
 	ListID *listid.Usecase
 }
 
-func New(c *Routes) http.Handler {
+func New(r *Routes) http.Handler {
 	m := http.NewServeMux()
-	m.HandleFunc("/list", c.List.HTTPHandler)
-	m.HandleFunc("/list/{id}", c.ListID.HTTPHandler)
-	m.HandleFunc("/create", c.Create.HTTPHandler)
+	m.HandleFunc("/list", r.List.HTTPHandler)
+	m.HandleFunc("/list/{id}", r.ListID.HTTPHandler)
+	m.HandleFunc("/create", r.Create.HTTPHandler)
 	return m
 }

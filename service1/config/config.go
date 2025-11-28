@@ -48,7 +48,5 @@ func New() (Config, error) {
 		return Config{}, fmt.Errorf("%w: %v", ErrReadingConfig, err)
 	}
 
-	fmt.Println(c)
-
 	return c, nil
 }
