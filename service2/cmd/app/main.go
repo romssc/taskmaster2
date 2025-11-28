@@ -4,41 +4,37 @@ import (
 	"context"
 	"errors"
 	"log"
-	"os"
 	"os/signal"
 	"syscall"
 
 	"service2/config"
+	"service2/internal/broker/kafkaa"
 	"service2/internal/controller/kafkarouter"
-	"service2/internal/pkg/broker/kafkaa"
-	"service2/internal/pkg/json/standartjson"
 	"service2/internal/usecase/update"
+	"service2/internal/utils/json/standartjson"
 
 	"golang.org/x/sync/errgroup"
 )
 
 // ENVIRONMENT VARIABLES:
-// - CONFIG_PATH - SPECIFIES CONFIG .YAML FILE TO USE : DEFAULTS TO "service1/config.yaml"
-// - KAFKA_ADDR - SPECIFIES KAFKA ADDRESS (EG. "0.0.0.0:9092") : DEFAULTS TO "[]string{"0.0.0.0:9092"}"
-
+//   - KAFKA_BROKERS = SPECIFIES KAFKA ADDRESSES, DEFAULTS TO []string{"0.0.0.0:9092"}
+//   - KAFKA_TOPIC = SPECIFIES KAFKA TOPIC, DEFAULTS TO "tasks"
+//   - KAFKA_GROUP_ID = SPECIFIES KAFKA GROUP ID, DEFAULTS TO "tasks_group"
 func main() {
 	if err := run(); err != nil {
-		log.Fatalf("critical: %v", err)
+		log.Fatalf("exit with failure: %v", err)
 	}
 }
 
 func run() error {
-	configPath, brokers := loadEnvs()
-
-	config, cnErr := config.New(configPath)
-	if cnErr != nil {
-		return cnErr
+	config, err := config.New()
+	if err != nil {
+		return err
 	}
-	config.Kafka.Brokers = brokers
 
 	json := standartjson.New()
 
-	router := kafkarouter.New(&kafkarouter.Config{
+	router := kafkarouter.New(&kafkarouter.Routes{
 		Update: &update.Usecase{
 			Config:  config.Router.Update,
 			Decoder: json,
@@ -48,39 +44,28 @@ func run() error {
 	config.Kafka.Handler = router
 	broker := kafkaa.New(config.Kafka)
 
-	snCtx, snCancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-	defer snCancel()
-	ewith, ewithCtx := errgroup.WithContext(snCtx)
-	ewith.Go(func() error {
-		if brunErr := broker.Run(ewithCtx); brunErr != nil && !errors.Is(brunErr, kafkaa.ErrOperationCanceled) {
-			return brunErr
+	sigCtx, sigCancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	defer sigCancel()
+	eg, egCtx := errgroup.WithContext(sigCtx)
+
+	eg.Go(func() error {
+		if err := broker.Run(egCtx); err != nil && !errors.Is(err, kafkaa.ErrOperationCanceled) {
+			return err
 		}
 		return nil
 	})
-	ewith.Go(func() error {
-		<-ewithCtx.Done()
-		if bshutErr := broker.Shutdown(); bshutErr != nil {
-			log.Println(bshutErr)
+
+	eg.Go(func() error {
+		<-egCtx.Done()
+		if err := broker.Shutdown(); err != nil {
+			log.Println(err)
 		}
 		return nil
 	})
-	if ewaitErr := ewith.Wait(); ewaitErr != nil {
-		return ewaitErr
+
+	if err := eg.Wait(); err != nil {
+		return err
 	}
 
 	return nil
-}
-
-func loadEnvs() (string, []string) {
-	configPath := os.Getenv("CONFIG_PATH")
-	if configPath == "" {
-		configPath = "config.yaml"
-	}
-	brokers := make([]string, 0, 1)
-	kafkaAddr := os.Getenv("KAFKA_ADDR")
-	if kafkaAddr == "" {
-		kafkaAddr = "0.0.0.0:9092"
-	}
-	brokers = append(brokers, kafkaAddr)
-	return configPath, brokers
 }

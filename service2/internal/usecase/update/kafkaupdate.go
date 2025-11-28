@@ -36,6 +36,7 @@ func (u *Usecase) EventHandler(ctx context.Context, message kafka.Message) {
 		log.Println(fmt.Errorf("%v: %v", ErrUnmarshalingMessage, umErr))
 		return
 	}
+
 	if upErr := u.Update(ctx, event); upErr != nil && !errors.Is(upErr, ErrOperationCanceled) {
 		log.Println(upErr)
 		return

@@ -10,28 +10,27 @@ import (
 )
 
 type Config struct {
+	Update update.Config `mapstructure:"update"`
+}
+
+type Routes struct {
 	Update *update.Usecase
 }
 
 type Router struct {
-	Config *Config
-
 	Handlers *Handlers
 }
 
-type Handler interface {
-	EventHandler(ctx context.Context, message kafka.Message)
-}
-
 type Handlers struct {
-	update Handler
+	update EventHandler
 }
 
-func New(c *Config) *Router {
+type EventHandler func(ctx context.Context, message kafka.Message)
+
+func New(r *Routes) *Router {
 	return &Router{
-		Config: c,
 		Handlers: &Handlers{
-			update: c.Update,
+			update: r.Update.EventHandler,
 		},
 	}
 }
@@ -39,6 +38,6 @@ func New(c *Config) *Router {
 func (r *Router) Route(ctx context.Context, message kafka.Message) {
 	switch domain.Action(string(message.Key)) {
 	case domain.ActionUpdate:
-		r.Handlers.update.EventHandler(ctx, message)
+		r.Handlers.update(ctx, message)
 	}
 }

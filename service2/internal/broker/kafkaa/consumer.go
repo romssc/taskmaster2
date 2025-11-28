@@ -22,17 +22,17 @@ var (
 )
 
 type Config struct {
-	Brokers        []string
-	Topic          string        `yaml:"topic"`
-	GroupID        string        `yaml:"group_id"`
-	CommitInterval time.Duration `yaml:"commit_interval"`
-	SessionTimeout time.Duration `yaml:"session_timeout"`
-	StartOffset    int           `yaml:"start_offset"`
+	Brokers        []string      `mapstructure:"brokers"`
+	Topic          string        `mapstructure:"topic"`
+	GroupID        string        `mapstructure:"group_id"`
+	CommitInterval time.Duration `mapstructure:"commit_interval"`
+	SessionTimeout time.Duration `mapstructure:"session_timeout"`
+	StartOffset    int           `mapstructure:"start_offset"`
 
-	ShutdownTimeout time.Duration `yaml:"shutdown_timeout"`
-	RetryAmount     int           `yaml:"retry_amount"`
-	WorkerCount     int           `yaml:"worker_count"`
-	JobsMultiplier  int           `yaml:"jobs_multiplier"`
+	ShutdownTimeout time.Duration `mapstructure:"shutdown_timeout"`
+	RetryAmount     int           `mapstructure:"retry_amount"`
+	WorkerCount     int           `mapstructure:"worker_count"`
+	JobsMultiplier  int           `mapstructure:"jobs_multiplier"`
 
 	Handler Handler
 }
@@ -87,6 +87,7 @@ func New(c Config) *Consumer {
 func (c *Consumer) Run(ctx context.Context) error {
 	jobs := make(chan kafka.Message, c.config.WorkerCount*c.config.JobsMultiplier)
 	done := make(chan struct{})
+
 	var wg sync.WaitGroup
 	workerCtx, workerCancel := context.WithCancel(context.Background())
 
@@ -120,12 +121,12 @@ func (c *Consumer) Run(ctx context.Context) error {
 
 	backoff := time.Second * 0
 	for a := 0; a <= c.config.RetryAmount; a++ {
-		if consErr := c.consume(ctx, jobs, backoff); consErr != nil {
-			if errors.Is(consErr, ErrOperationCanceled) {
-				return consErr
+		if err := c.consume(ctx, jobs, backoff); err != nil {
+			if errors.Is(err, ErrOperationCanceled) {
+				return err
 			}
 			if a == c.config.RetryAmount {
-				return fmt.Errorf("%w: %v", ErrTooManyRetries, consErr)
+				return fmt.Errorf("%w: %v", ErrTooManyRetries, err)
 			}
 			switch backoff {
 			case 0:
@@ -133,7 +134,7 @@ func (c *Consumer) Run(ctx context.Context) error {
 			default:
 				backoff *= 2
 			}
-			log.Println(consErr)
+			log.Println(err)
 			continue
 		}
 		a = 0
@@ -148,25 +149,25 @@ func (c *Consumer) consume(ctx context.Context, jobs chan kafka.Message, backoff
 	case <-ctx.Done():
 		return fmt.Errorf("%w: %v", ErrOperationCanceled, ctx.Err())
 	case <-time.After(backoff):
-		message, fetchErr := c.reader.FetchMessage(ctx)
-		if fetchErr != nil {
+		message, err := c.reader.FetchMessage(ctx)
+		if err != nil {
 			switch {
-			case errors.Is(fetchErr, context.Canceled):
-				return fmt.Errorf("%w: %v", ErrOperationCanceled, fetchErr)
+			case errors.Is(err, context.Canceled):
+				return fmt.Errorf("%w: %v", ErrOperationCanceled, err)
 			default:
-				return fmt.Errorf("%w: %v", ErrFetchingMessages, fetchErr)
+				return fmt.Errorf("%w: %v", ErrFetchingMessages, err)
 			}
 		}
 		select {
 		case <-ctx.Done():
 			return fmt.Errorf("%w: %v", ErrOperationCanceled, ctx.Err())
 		case jobs <- message:
-			if commitErr := c.reader.CommitMessages(ctx, message); commitErr != nil {
+			if err := c.reader.CommitMessages(ctx, message); err != nil {
 				switch {
-				case errors.Is(commitErr, context.Canceled):
-					return fmt.Errorf("%w: %v", ErrOperationCanceled, commitErr)
+				case errors.Is(err, context.Canceled):
+					return fmt.Errorf("%w: %v", ErrOperationCanceled, err)
 				default:
-					return fmt.Errorf("%w: %v", ErrCommitting, commitErr)
+					return fmt.Errorf("%w: %v", ErrCommitting, err)
 				}
 			}
 		}
