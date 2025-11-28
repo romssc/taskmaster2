@@ -11,10 +11,11 @@ import (
 
 var (
 	ErrOperationCanceled = errors.New("inmemory: operation canceled, no records written")
-	ErrAlreadyExists     = errors.New("inmemory: already exists")
-	ErrExecuting         = errors.New("inmemory: failed to execute")
-	ErrIncompatible      = errors.New("inmemory: data incompatible: memory stores different type")
-	ErrNotFound          = errors.New("inmemory: no records found")
+
+	ErrAlreadyExists = errors.New("inmemory: already exists")
+	ErrExecuting     = errors.New("inmemory: failed to execute")
+	ErrIncompatible  = errors.New("inmemory: data incompatible: memory stores different type")
+	ErrNotFound      = errors.New("inmemory: no records found")
 )
 
 type Keeper interface {
@@ -77,10 +78,12 @@ func (s *Storage) GetTaskByID(ctx context.Context, id int) (domain.Record, error
 			return domain.Record{}, fmt.Errorf("%w: %v", ErrExecuting, err)
 		}
 	}
+
 	task, ok := record.(domain.Record)
 	if !ok {
 		return domain.Record{}, fmt.Errorf("%w", ErrIncompatible)
 	}
+
 	return task, nil
 }
 
@@ -94,8 +97,10 @@ func (s *Storage) GetTasks(ctx context.Context) ([]domain.Record, error) {
 			return nil, fmt.Errorf("%w: %v", ErrExecuting, err)
 		}
 	}
+
 	var counter uint64
 	tasks := make([]domain.Record, 0, len(records))
+
 	for _, record := range records {
 		counter++
 		if counter%50 == 0 {
@@ -111,5 +116,6 @@ func (s *Storage) GetTasks(ctx context.Context) ([]domain.Record, error) {
 		}
 		tasks = append(tasks, task)
 	}
+
 	return tasks, nil
 }

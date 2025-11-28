@@ -15,12 +15,12 @@ var (
 )
 
 type Config struct {
-	Host         string        `yaml:"host"`
-	Port         string        `yaml:"port"`
-	ReadTimeout  time.Duration `yaml:"read_timeout"`
-	WriteTimeout time.Duration `yaml:"write_timeout"`
+	Host         string        `mapstructure:"host"`
+	Port         string        `mapstructure:"port"`
+	ReadTimeout  time.Duration `mapstructure:"read_timeout"`
+	WriteTimeout time.Duration `mapstructure:"write_timeout"`
 
-	ShutdownTimeout time.Duration `yaml:"shutdown_timeout"`
+	ShutdownTimeout time.Duration `mapstructure:"shutdown_timeout"`
 
 	Handler http.Handler
 }

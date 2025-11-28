@@ -5,7 +5,6 @@ import (
 	"errors"
 	"log"
 	"net/http"
-	"os"
 	"os/signal"
 	"syscall"
 
@@ -13,35 +12,33 @@ import (
 	"service1/internal/adapter/broker/kafkaa"
 	"service1/internal/adapter/storage/inmemory"
 	"service1/internal/controller/httprouter"
-	"service1/internal/pkg/id/uuidgen"
-	"service1/internal/pkg/json/standartjson"
-	"service1/internal/pkg/server/httpserver"
-	"service1/internal/pkg/timestamp/standarttime"
+	"service1/internal/server/httpserver"
 	"service1/internal/usecase/create"
 	"service1/internal/usecase/list"
 	"service1/internal/usecase/listid"
+	"service1/internal/utils/id/uuidgen"
+	"service1/internal/utils/json/standartjson"
+	"service1/internal/utils/timestamp/standarttime"
 
 	"golang.org/x/sync/errgroup"
 )
 
 // ENVIRONMENT VARIABLES:
-// - CONFIG_PATH - SPECIFIES CONFIG .YAML FILE TO USE : DEFAULTS TO "service1/config.yaml"
-// - KAFKA_ADDR - SPECIFIES KAFKA ADDRESS (EG. "0.0.0.0:9092") : DEFAULTS TO "[]string{"0.0.0.0:9092"}"
-
+//   - SERVER_HOST = SPECIFIES SERVER HOST, DEFAULTS TO "0.0.0.0"
+//   - SERVER_PORT = SPECIFIES SERVER PORT, DEFAULTS TO "8081"
+//   - KAFKA_ADDRESS = SPECIFIES KAFKA ADDRESSES, DEFAULTS TO []string{"0.0.0.0:9092"}
+//   - KAFKA_TOPIC = SPECIFIES KAFKA TOPIC, DEFAULTS TO "tasks"
 func main() {
 	if err := run(); err != nil {
-		log.Fatalf("critical: %v", err)
+		log.Fatalf("exit with failure: %v", err)
 	}
 }
 
 func run() error {
-	configPath, brokers := loadEnvs()
-
-	config, cnewErr := config.New(configPath)
-	if cnewErr != nil {
-		return cnewErr
+	config, err := config.New()
+	if err != nil {
+		return err
 	}
-	config.Kafka.Address = brokers
 
 	generator := uuidgen.New()
 	timer := standarttime.New()
@@ -52,7 +49,7 @@ func run() error {
 	config.Kafka.Encoder = json
 	broker := kafkaa.New(config.Kafka)
 
-	router := httprouter.New(&httprouter.Config{
+	router := httprouter.New(&httprouter.Routes{
 		Create: &create.Usecase{
 			Config:    config.Router.Create,
 			Creator:   storage,
@@ -77,45 +74,35 @@ func run() error {
 	config.Server.Handler = router
 	server := httpserver.New(config.Server)
 
-	egCtx, egCancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-	defer egCancel()
-	ewith, ewithCtx := errgroup.WithContext(egCtx)
-	ewith.Go(func() error {
-		if srunErr := server.Run(); srunErr != nil && !errors.Is(srunErr, http.ErrServerClosed) {
-			return srunErr
+	sigCtx, sigCancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	defer sigCancel()
+
+	eg, egCtx := errgroup.WithContext(sigCtx)
+
+	eg.Go(func() error {
+		if err := server.Run(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			return err
 		}
 		return nil
 	})
-	ewith.Go(func() error {
-		<-ewithCtx.Done()
-		sshutCtx, sshutCancel := context.WithTimeout(context.Background(), config.Server.ShutdownTimeout)
-		defer sshutCancel()
-		if sshutErr := server.Shutdown(sshutCtx); sshutErr != nil {
-			log.Println(sshutErr)
+
+	eg.Go(func() error {
+		<-egCtx.Done()
+		toCtx, toCancel := context.WithTimeout(context.Background(), config.Server.ShutdownTimeout)
+		defer toCancel()
+		if err := server.Shutdown(toCtx); err != nil {
+			log.Println(err)
 		}
-		if bcloseErr := broker.Close(); bcloseErr != nil {
-			log.Println(bcloseErr)
+		if err := broker.Close(); err != nil {
+			log.Println(err)
 		}
 		storage.Close()
 		return nil
 	})
-	if ewaitErr := ewith.Wait(); ewaitErr != nil && !errors.Is(ewaitErr, context.Canceled) {
-		return ewaitErr
+
+	if err := eg.Wait(); err != nil && !errors.Is(err, context.Canceled) {
+		return err
 	}
 
 	return nil
-}
-
-func loadEnvs() (string, []string) {
-	configPath := os.Getenv("CONFIG_PATH")
-	if configPath == "" {
-		configPath = "config.yaml"
-	}
-	brokers := make([]string, 0, 1)
-	kafkaAddr := os.Getenv("KAFKA_ADDR")
-	if kafkaAddr == "" {
-		kafkaAddr = "0.0.0.0:9092"
-	}
-	brokers = append(brokers, kafkaAddr)
-	return configPath, brokers
 }

@@ -24,7 +24,7 @@ var (
 )
 
 type Config struct {
-	FailTimeout time.Duration `yaml:"fail_timeout"`
+	FailTimeout time.Duration `mapstructure:"fail_timeout"`
 }
 
 type Creator interface {
@@ -129,38 +129,42 @@ func (u *Usecase) sendJSON(w http.ResponseWriter, data any, code int) {
 }
 
 func (u *Usecase) CreateTask(ctx context.Context, task domain.Record) (domain.Event, error) {
-	event, ceErr := u.createEvent(task)
-	if ceErr != nil {
-		return domain.Event{}, ceErr
+	event, err := u.createEvent(task)
+	if err != nil {
+		return domain.Event{}, err
 	}
+
 	record := event.Record
-	_, ctErr := u.Creator.CreateTask(ctx, record)
-	if ctErr != nil {
+
+	_, err = u.Creator.CreateTask(ctx, record)
+	if err != nil {
 		switch {
-		case errors.Is(ctErr, inmemory.ErrOperationCanceled):
-			return domain.Event{}, fmt.Errorf("%w: %v", ErrOperationCanceled, ctErr)
-		case errors.Is(ctErr, inmemory.ErrAlreadyExists):
-			return domain.Event{}, fmt.Errorf("%w: %v", ErrStorageAlreadyExists, ctErr)
+		case errors.Is(err, inmemory.ErrOperationCanceled):
+			return domain.Event{}, fmt.Errorf("%w: %v", ErrOperationCanceled, err)
+		case errors.Is(err, inmemory.ErrAlreadyExists):
+			return domain.Event{}, fmt.Errorf("%w: %v", ErrStorageAlreadyExists, err)
 		default:
-			return domain.Event{}, fmt.Errorf("%w: %v", ErrStorageFailure, ctErr)
+			return domain.Event{}, fmt.Errorf("%w: %v", ErrStorageFailure, err)
 		}
 	}
-	if pubErr := u.Publisher.PublishEvent(ctx, event); pubErr != nil {
-		c, cancel := context.WithTimeout(context.Background(), u.Config.FailTimeout)
-		defer cancel()
-		_, markErr := u.markFailure(c, record)
-		if markErr != nil {
-			return domain.Event{}, markErr
+
+	if err := u.Publisher.PublishEvent(ctx, event); err != nil {
+		failCtx, failCancel := context.WithTimeout(context.Background(), u.Config.FailTimeout)
+		defer failCancel()
+		_, err := u.markFailure(failCtx, record)
+		if err != nil {
+			return domain.Event{}, err
 		}
 		switch {
-		case errors.Is(pubErr, kafkaa.ErrOperationCanceled):
-			return domain.Event{}, fmt.Errorf("%w: %v", ErrOperationCanceled, pubErr)
-		case errors.Is(pubErr, kafkaa.ErrClosed):
-			return domain.Event{}, fmt.Errorf("%w: %v", ErrBrokerUnavailable, pubErr)
+		case errors.Is(err, kafkaa.ErrOperationCanceled):
+			return domain.Event{}, fmt.Errorf("%w: %v", ErrOperationCanceled, err)
+		case errors.Is(err, kafkaa.ErrClosed):
+			return domain.Event{}, fmt.Errorf("%w: %v", ErrBrokerUnavailable, err)
 		default:
-			return domain.Event{}, fmt.Errorf("%w: %v", ErrBrokerFailure, pubErr)
+			return domain.Event{}, fmt.Errorf("%w: %v", ErrBrokerFailure, err)
 		}
 	}
+
 	return event, nil
 }
 
@@ -169,7 +173,9 @@ func (u *Usecase) createEvent(task domain.Record) (domain.Event, error) {
 	if err != nil {
 		return domain.Event{}, fmt.Errorf("%w: %v", ErrGeneratingID, err)
 	}
+
 	time := u.Timer.TimeNow()
+
 	return domain.Event{
 		Record: domain.Record{
 			ID:        id,
@@ -182,6 +188,7 @@ func (u *Usecase) createEvent(task domain.Record) (domain.Event, error) {
 
 func (u *Usecase) markFailure(ctx context.Context, task domain.Record) (domain.Record, error) {
 	task.Status = domain.StatusFailed
+
 	if err := u.Creator.UpdateOrCreateTask(ctx, task); err != nil {
 		switch {
 		case errors.Is(err, inmemory.ErrOperationCanceled):
@@ -190,5 +197,6 @@ func (u *Usecase) markFailure(ctx context.Context, task domain.Record) (domain.R
 			return domain.Record{}, fmt.Errorf("%w: %v", ErrStorageFailure, err)
 		}
 	}
+
 	return task, nil
 }

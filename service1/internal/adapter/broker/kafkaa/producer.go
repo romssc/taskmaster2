@@ -21,11 +21,11 @@ var (
 )
 
 type Config struct {
-	Address            []string
-	Topic              string        `yaml:"topic"`
-	BatchTimeout       time.Duration `yaml:"batch_timeout"`
-	RequiredAcks       int           `yaml:"required_acks"`
-	AllowTopicCreation bool          `yaml:"allow_topic_creation"`
+	Address            []string      `mapstructure:"address"`
+	Topic              string        `mapstructure:"topic"`
+	BatchTimeout       time.Duration `mapstructure:"batch_timeout"`
+	RequiredAcks       int           `mapstructure:"required_acks"`
+	AllowTopicCreation bool          `mapstructure:"allow_topic_creation"`
 
 	Encoder Encoder
 }
@@ -68,22 +68,22 @@ func (p *Producer) Close() error {
 }
 
 func (p *Producer) PublishEvent(ctx context.Context, event domain.Event) error {
-	eventByte, marshalErr := p.encoder.Marshal(event)
-	if marshalErr != nil {
-		return fmt.Errorf("%w: %v", ErrMarshalingEvent, marshalErr)
+	eventByte, err := p.encoder.Marshal(event)
+	if err != nil {
+		return fmt.Errorf("%w: %v", ErrMarshalingEvent, err)
 	}
-	if writeErr := p.producer.WriteMessages(ctx, kafka.Message{
+	if err := p.producer.WriteMessages(ctx, kafka.Message{
 		Key:   []byte(domain.ActionUpdate),
 		Value: eventByte,
 		Time:  time.Now(),
-	}); writeErr != nil {
+	}); err != nil {
 		switch {
-		case errors.Is(writeErr, context.Canceled):
-			return fmt.Errorf("%w: %v", ErrOperationCanceled, writeErr)
-		case errors.Is(writeErr, kafka.ErrGroupClosed):
-			return fmt.Errorf("%w: %v", ErrClosed, writeErr)
+		case errors.Is(err, context.Canceled):
+			return fmt.Errorf("%w: %v", ErrOperationCanceled, err)
+		case errors.Is(err, kafka.ErrGroupClosed):
+			return fmt.Errorf("%w: %v", ErrClosed, err)
 		default:
-			return fmt.Errorf("%w: %v", ErrProducingEvent, writeErr)
+			return fmt.Errorf("%w: %v", ErrProducingEvent, err)
 		}
 	}
 	return nil

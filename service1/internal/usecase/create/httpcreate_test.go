@@ -8,7 +8,7 @@ import (
 	"service1/internal/adapter/broker/kafkaa"
 	"service1/internal/adapter/storage/inmemory"
 	"service1/internal/domain"
-	"service1/internal/pkg/id/uuidgen"
+	"service1/internal/utils/id/uuidgen"
 
 	"github.com/stretchr/testify/assert"
 )
